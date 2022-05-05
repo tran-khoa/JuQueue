@@ -39,15 +39,20 @@ class ExperimentEngine:
     def __init__(self, experiment: BaseExperiment):
         self.experiment = experiment
 
-    def load_states(self):
+    def __call__(self):
+        pass
+
+    def __load_experiment_states(self):
         with open(self.experiment.path / ".juqueue", 'rt') as f:
             states = json.load(f)
             self.experiment.load_states(states)
 
-    def __call__(self):
+    def on_load(self):
         if self.experiment.status == "finished":
             logging.info(f"Experiment {self.experiment.name} already finished.")
             return
+
+        self.__load_experiment_states()
 
     def on_run_added(self):
         pass

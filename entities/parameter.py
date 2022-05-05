@@ -1,10 +1,9 @@
 import itertools
-from dataclasses import dataclass
+from typing import NamedTuple
 from typing import Any, List, Set, Tuple
 
 
-@dataclass
-class Parameter:
+class Parameter(NamedTuple):
     key: str
     value: Any
 
@@ -13,8 +12,7 @@ class Parameter:
     characteristic: bool = True
 
 
-@dataclass
-class ParameterSet:
+class ParameterSet(NamedTuple):
     key: str
     values: List[Any]
 
@@ -29,3 +27,7 @@ class ParameterSet:
             elif isinstance(s, ParameterSet):
                 sets.append({Parameter(s.key, val, characteristic=s.characteristic) for val in s.values})
         return list(itertools.product(*sets))
+
+
+a = ParameterSet("lol", [1, 2, 3])
+print(a)
