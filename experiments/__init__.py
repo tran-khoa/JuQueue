@@ -1,3 +1,4 @@
+import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -58,8 +59,22 @@ class BaseExperiment(ABC):
     def states(self) -> Dict[str, Any]:
         return {"status": self.status}
 
-    def load_states(self, states: Dict[str, Any]):
-        self.status = states['status']
+    @property
+    def __metadata_path(self) -> Path:
+        return self.path / "juqueue-run.json"
+
+    def load_from_disk(self) -> bool:
+        if not self.__metadata_path.exists():
+            return False
+
+        with open(self.__metadata_path, "rt") as f:
+            state = json.load(f)
+        self.status = state['status']
+        return True
+
+    def save_to_disk(self):
+        with open(self.__metadata_path, "wt") as f:
+            json.dump({"states": self.states}, f)
 
 
 @dataclass

@@ -38,17 +38,8 @@ class Run:
     last_run: Optional[datetime] = field(default=None, init=False)
 
     @property
-    def metadata(self) -> Dict[str, Any]:
-        return {
-            "uid": self.uid,
-            "experiment": self.experiment.name,
-            "cmd": self.cmd,
-            "env": self.env
-        }
-
-    @property
     def states(self) -> Dict[str, Any]:
-        return {"status": self.status, "last_run": self.last_run}
+        return {"status": self.status, "last_run": self.last_run.isoformat()}
 
     @property
     def path(self) -> Path:
@@ -57,9 +48,24 @@ class Run:
     def __repr__(self):
         return f"Run(uid={self.uid}, experiment={self.experiment.name}, status={self.status})"
 
-    def save(self):
-        with open(self.path / "juqueue-run.json", 'rt') as f:
-            json.dump({"metadata": self.metadata, "states": self.states}, f)
+    @property
+    def __metadata_path(self) -> Path:
+        return self.path / "juqueue-run.json"
+
+    def save_to_disk(self):
+        with open(self.__metadata_path, 'wt') as f:
+            json.dump({"states": self.states}, f)
+
+    def load_from_disk(self) -> bool:
+        if not self.__metadata_path.exists():
+            return False
+
+        with open(self.__metadata_path, 'rt') as f:
+            d = json.load(f)
+
+        self.status = d["states"]["status"]
+        self.last_run = datetime.fromisoformat(d["states"]["last_run"])
+        return True
 
 
 @dataclass
@@ -75,13 +81,3 @@ class SweepRun(Run):
                 self.cmd.append(f"{param.key}={param.value}")
             else:
                 raise NotImplementedError()
-
-    @property
-    def metadata(self) -> Dict[str, Any]:
-        metadata = super().metadata
-        metadata.update({
-            "parameters": self.parameters,
-            "parameter_format": self.parameter_format
-        })
-        return metadata
-
