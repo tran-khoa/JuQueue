@@ -14,7 +14,7 @@ from entities.run import Run
 
 @dataclass
 class BaseExperiment(ABC):
-    status: Literal['running', 'paused', 'finished'] = 'paused'
+    status: Literal['active', 'inactive'] = 'active'
 
     @property
     @abstractmethod
@@ -27,11 +27,6 @@ class BaseExperiment(ABC):
         """
         https://jobqueue.dask.org/en/latest/generated/dask_jobqueue.SLURMCluster.html
         """
-        raise NotImplementedError()
-
-    @property
-    @abstractmethod
-    def workers_per_job(self) -> int:
         raise NotImplementedError()
 
     @property
@@ -62,6 +57,11 @@ class BaseExperiment(ABC):
     @property
     def __metadata_path(self) -> Path:
         return self.path / "juqueue-run.json"
+
+    @property
+    def fail_period(self) -> int:
+        """If run exits after N (default: 120) seconds with non-zero status code, consider run failed"""
+        return 120
 
     def load_from_disk(self) -> bool:
         if not self.__metadata_path.exists():

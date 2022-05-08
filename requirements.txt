@@ -1,1 +1,2 @@
 dask_jobqueue
+prompt_toolkit

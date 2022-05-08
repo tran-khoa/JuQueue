@@ -15,6 +15,8 @@ class Experiment(BaseExperiment):
 
     @property
     def cluster(self) -> JobQueueCluster:
+        return None
+        """
         return SLURMCluster(
             queue="dc-cpu",
             project="jinm60",
@@ -22,10 +24,12 @@ class Experiment(BaseExperiment):
             memory="127G",
             interface="ib0",
             log_directory="~/logs/helloworld",
+            processes=1,
             extra=[
                 "--lifetime", "1h"
             ]
         )
+        """
 
     @property
     def workers_per_job(self) -> int:

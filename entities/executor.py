@@ -1,7 +1,8 @@
 import shlex
 import subprocess
+from functools import partial
 from pathlib import Path
-from typing import Optional, Dict, Union
+from typing import Callable, Optional, Dict, Union
 
 from config import Config
 from entities.run import Run
@@ -20,6 +21,9 @@ class Executor:
         return subprocess.call(run.cmd,
                                env=self.environment(run),
                                cwd=run.path.as_posix())
+
+    def create(self, run: Run) -> Callable:
+        return partial(self.execute, run)
 
 
 class SingularityExecutor(Executor):

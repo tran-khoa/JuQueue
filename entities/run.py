@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 
 @dataclass
 class Run:
-
     # Run identifier, unique inside the respective experiment, equal for runs with the same hyperparameters
     uid: str
 
@@ -32,10 +31,13 @@ class Run:
     env: Dict[str, str] = field(default_factory=dict)
 
     #
-    status: Literal['finished', 'running', 'paused'] = field(default='paused', init=False)
+    status: Literal['active', 'failed', 'finished'] = field(default='active', init=False)
 
     #
     last_run: Optional[datetime] = field(default=None, init=False)
+
+    def __post_init__(self):
+        self.path.mkdir(parents=True, exist_ok=True)
 
     @property
     def states(self) -> Dict[str, Any]:
@@ -67,6 +69,13 @@ class Run:
         self.last_run = datetime.fromisoformat(d["states"]["last_run"])
         return True
 
+    def __eq__(self, other):
+        if not isinstance(other, Run):
+            return False
+        return (self.uid == other.uid) \
+               and (self.cmd == other.cmd) \
+               and (self.env == other.env)
+
 
 @dataclass
 class SweepRun(Run):
@@ -81,3 +90,10 @@ class SweepRun(Run):
                 self.cmd.append(f"{param.key}={param.value}")
             else:
                 raise NotImplementedError()
+
+    def __eq__(self, other):
+        return super().__eq__(other) \
+               and (self.parameters == other.parameters) \
+               and (self.parameter_format == other.parameter_format)
+
+

@@ -27,7 +27,3 @@ class ParameterSet(NamedTuple):
             elif isinstance(s, ParameterSet):
                 sets.append({Parameter(s.key, val, characteristic=s.characteristic) for val in s.values})
         return list(itertools.product(*sets))
-
-
-a = ParameterSet("lol", [1, 2, 3])
-print(a)
