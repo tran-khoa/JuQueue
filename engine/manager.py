@@ -132,7 +132,7 @@ class ExperimentManager:
             if cluster is not None:
                 if hasattr(cluster, "log_directory"):
                     Path(cluster.log_directory).expanduser().mkdir(parents=True, exist_ok=True)
-                cluster.adapt(maximum_jobs=self.experiment.num_jobs)
+                cluster.adapt(maximum_jobs=self.experiment.num_jobs[name])
                 self.clients[name] = Client(cluster)
             else:
                 self.clients[name] = Client()
