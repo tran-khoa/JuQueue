@@ -55,14 +55,14 @@ class Client:
         experiment_name = questionary.select("Select an experiment",
                                 choices=list(experiments) + ["All"]).ask()
         if experiment_name == "All":
-            tp.table(headers=["Experiment", "UID", "Status", "Command", "Parameters"],
-                     data=[(name, run.uid, run.status, str(run.cmd), str(run.parameters)) for name in
+            tp.table(headers=["Experiment", "UID", "Status"],
+                     data=[(name, run.uid, run.status) for name in
                            experiments
                            for run in self.__execute("get_runs", experiment_name=name)])
         else:
             runs = self.__execute("get_runs", experiment_name=experiment_name)
-            tp.table(headers=["UID", "Status", "Command", "Parameters"],
-                     data=[(run.uid, run.status, str(run.cmd), str(run.parameters)) for run in
+            tp.table(headers=["UID", "Status"],
+                     data=[(run.uid, run.status) for run in
                            runs])
 
     def stop_server(self):
