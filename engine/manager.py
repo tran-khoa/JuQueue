@@ -1,14 +1,14 @@
 import datetime
 import importlib
 import logging
-from typing import Dict, List, Union
 from pathlib import Path
 from threading import Lock
-
-from entities.run import Run
-from entities.experiment import BaseExperiment
+from typing import List, Union
 
 from dask.distributed import Client, Future
+
+from entities.experiment import BaseExperiment
+from entities.run import Run
 
 
 class Manager:
@@ -20,6 +20,7 @@ class Manager:
     def load_experiments(self):
         importlib.invalidate_caches()
 
+        results = {}
         for file in self.experiments_path.glob("*.py"):
             if file.name.startswith(".") or file.name.startswith("_"):
                 continue
@@ -31,11 +32,13 @@ class Manager:
                 if xp.name not in self.managers:
                     self.managers[xp.name] = ExperimentManager(xp)
 
-                self.managers[xp.name].on_load(xp)
+                result = self.managers[xp.name].on_load(xp)
+                results[xp.name] = result
+        return results
 
     @property
-    def experiments(self):
-        return {name: manager.experiment for name, manager in self.managers.items()}
+    def experiment_names(self):
+        return list(self.managers.keys())
 
     def get_runs(self, experiment_name: str):
         if experiment_name not in self.managers:
@@ -69,6 +72,8 @@ class ExperimentManager:
             return
 
         # Detect and load runs
+        new_runs = set()
+        updated_runs = set()
         deleted_runs = set(self.detected_runs.keys())
         for run in self.experiment.runs:
             run.load_from_disk()
@@ -79,17 +84,21 @@ class ExperimentManager:
                 else:
                     logging.info(f"Updating existing run {run}...")
                     logging.warning(f"{run} has changed, this has not been implemented yet :/")
+                    updated_runs.add(run)
                     # self.on_run_updated(run)
 
                 deleted_runs.remove(run.uid)
             else:
                 logging.info(f"Found new run {run}...")
+                new_runs.add(run)
                 self._add_run(run)
 
         for run in deleted_runs:
             logging.info(f"Run {run} removed from experiment.")
             self._delete_run(run)
         self.__lock.release()
+
+        return {"new": new_runs, "updated": updated_runs, "deleted": deleted_runs}
 
     def on_run_ended(self, fut: Future):
         xp, run_uid = fut.key.split('@')
@@ -121,6 +130,8 @@ class ExperimentManager:
                 continue
 
             if cluster is not None:
+                if hasattr(cluster, "log_directory"):
+                    Path(cluster.log_directory).expanduser().mkdir(parents=True, exist_ok=True)
                 cluster.adapt(maximum_jobs=self.experiment.num_jobs)
                 self.clients[name] = Client(cluster)
             else:

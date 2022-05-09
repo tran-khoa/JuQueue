@@ -1,14 +1,17 @@
-import argparse
 import logging
 import os
-import sys
 import pickle
+import sys
+import traceback
+import warnings
 from typing import Callable, Dict
+
+import zmq
 
 from config import Config
 from engine.manager import Manager
-import zmq
-import traceback
+
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 PIDFILE = Config.WORK_DIR / "server.pid"
@@ -28,7 +31,7 @@ class Server:
     def actions(self) -> Dict[str, Callable]:
         return {"quit": self.quit,
                 "heartbeat": self.heartbeat,
-                "get_experiments": lambda: self.manager.experiments,
+                "get_experiments": lambda: self.manager.experiment_names,
                 "get_runs": self.manager.get_runs,
                 "reload": self.manager.load_experiments}
 
@@ -42,7 +45,7 @@ class Server:
         sys.exit(0)
 
     def loop(self):
-        print(f"Server running on {Config.SOCKET_ADDRESS}...")
+        logging.info(f"Server running on {Config.SOCKET_ADDRESS}...")
         while True:
             request = self.socket.recv()
             logging.info(f"REQ: {request}")
@@ -88,6 +91,5 @@ if __name__ == '__main__':
     logging.basicConfig(filename=Config.WORK_DIR / "server.log",
                         filemode="a",
                         level=logging.INFO)
-
     server = Server()
     server.loop()

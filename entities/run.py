@@ -4,10 +4,9 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Literal, List, Optional
-from config import Config
+from typing import Any, Dict, List, Literal, Optional, TYPE_CHECKING
 
-from typing import TYPE_CHECKING
+from config import Config
 
 if TYPE_CHECKING:
     from entities.experiment import BaseExperiment
@@ -19,7 +18,7 @@ class Run:
     uid: str
 
     #
-    experiment: BaseExperiment
+    experiment_name: str
 
     #
     cluster: str
@@ -42,6 +41,17 @@ class Run:
     #
     parameter_format: Literal['argparse', 'eq'] = 'argparse'
 
+    def fork(self, uid: str) -> "Run":
+        return Run(
+            uid=uid,
+            experiment_name=self.experiment_name,
+            cluster=self.cluster,
+            cmd=list(self.cmd),
+            env=dict(self.env),
+            parameters=dict(self.parameters),
+            parameter_format=self.parameter_format
+        )
+
     def __post_init__(self):
         self.path.mkdir(parents=True, exist_ok=True)
 
@@ -63,10 +73,10 @@ class Run:
 
     @property
     def path(self) -> Path:
-        return Config.WORK_DIR / Path(f"{self.experiment.name}/{self.uid}")
+        return Config.WORK_DIR / Path(f"{self.experiment_name}/{self.uid}")
 
     def __repr__(self):
-        return f"Run(uid={self.uid}, experiment={self.experiment.name}, status={self.status})"
+        return f"Run(uid={self.uid}, experiment={self.experiment_name}, status={self.status})"
 
     @property
     def __metadata_path(self) -> Path:
@@ -95,3 +105,6 @@ class Run:
                and (self.env == other.env) \
                and (self.parameters == other.parameters) \
                and (self.parameter_format == other.parameter_format)
+
+    def __hash__(self) -> int:
+        return hash(self.experiment_name + self.uid)

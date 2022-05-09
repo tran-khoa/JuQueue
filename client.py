@@ -1,16 +1,17 @@
-import argparse
 import os
 import sys
 import pickle
+import warnings
 from typing import Any
 
 import questionary
-from questionary import Choice
 import tableprint as tp
-
 import zmq
+from questionary import Choice
 
 from config import Config
+
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 class Client:
@@ -46,17 +47,17 @@ class Client:
         experiments = self.__execute("get_experiments")
 
         tp.table(headers=["id", "name"],
-                 data=list(enumerate(experiments.keys())))
+                 data=list(enumerate(experiments)))
 
     def list_runs(self):
         experiments = self.__execute("get_experiments")
 
         experiment_name = questionary.select("Select an experiment",
-                                choices=list(experiments.keys()) + ["All"]).ask()
+                                choices=list(experiments) + ["All"]).ask()
         if experiment_name == "All":
             tp.table(headers=["Experiment", "UID", "Status", "Command", "Parameters"],
                      data=[(name, run.uid, run.status, str(run.cmd), str(run.parameters)) for name in
-                           experiments.keys()
+                           experiments
                            for run in self.__execute("get_runs", experiment_name=name)])
         else:
             runs = self.__execute("get_runs", experiment_name=experiment_name)
@@ -75,7 +76,23 @@ class Client:
 
     def reload(self):
         print("Reloading experiments...")
-        self.__execute("reload")
+        results = self.__execute("reload")
+
+        for xp, result in results.items():
+            print(f"Loaded experiment {xp}...")
+
+            if result["new"]:
+                print("Added the following runs:")
+                for run in result["new"]:
+                    print("\t" + run)
+            if result["deleted"]:
+                print("Removed the following runs:")
+                for run in result["deleted"]:
+                    print("\t" + run)
+            if result["updated"]:
+                print("Modified the following runs:")
+                for run in result["updated"]:
+                    print("\t" + run)
 
     def quit(self):
         sys.exit(0)

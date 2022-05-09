@@ -2,7 +2,7 @@ import shlex
 import subprocess
 from functools import partial
 from pathlib import Path
-from typing import Callable, Optional, Dict, Union
+from typing import Callable, Dict, Optional, Union
 
 from config import Config
 from entities.run import Run
@@ -13,7 +13,7 @@ class Executor:
         env = run.env.copy()
 
         env['RUN_ID'] = run.uid
-        env['EXPERIMENT_ID'] = run.experiment.name
+        env['EXPERIMENT_ID'] = run.experiment_name
 
         return env
 
@@ -29,8 +29,8 @@ class Executor:
 class SingularityExecutor(Executor):
     CONTAINER_ZYGOTE_PATH = "/juqueue/zygote.sh"
 
-    def __init__(self, container_path: Path, binds: Optional[Dict[Union[str, Path], Union[str, Path]]] = None):
-        self.container_path = container_path
+    def __init__(self, container_path: Union[Path, str], binds: Optional[Dict[Union[str, Path], Union[str, Path]]] = None):
+        self.container_path = Path(container_path)
         self.binds = binds or {}
         self.binds[Config.ROOT_DIR / "scripts" / "zygote.sh"] = SingularityExecutor.CONTAINER_ZYGOTE_PATH
 
@@ -43,6 +43,8 @@ class SingularityExecutor(Executor):
     def execute(self, run: Run):
         cmd = ["singularity", "run"]
         for src, dst in self.binds:
+            if src == "$RUN_PATH":
+                src = run.path
             cmd.extend(["--bind", f"{src}:{dst}"])
         cmd.extend([self.container_path.as_posix(), "/bin/bash", SingularityExecutor.CONTAINER_ZYGOTE_PATH])
 

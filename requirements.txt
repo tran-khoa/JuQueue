@@ -3,3 +3,4 @@ prompt_toolkit
 dill
 questionary
 tableprint
+pyzmq

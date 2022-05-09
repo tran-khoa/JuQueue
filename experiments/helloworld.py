@@ -1,7 +1,7 @@
-from typing import Dict, List, Optional
-
 from dataclasses import dataclass
-from dask_jobqueue import JobQueueCluster, SLURMCluster
+from typing import Dict, List, Literal, Optional
+
+from dask_jobqueue import JobQueueCluster
 
 from entities.experiment import BaseExperiment
 from entities.run import Run
@@ -9,6 +9,11 @@ from entities.run import Run
 
 @dataclass
 class Experiment(BaseExperiment):
+
+    @property
+    def status(self) -> Literal['active', 'inactive']:
+        return "active"
+
     @property
     def name(self) -> str:
         return "HelloWorld"
@@ -16,24 +21,6 @@ class Experiment(BaseExperiment):
     @property
     def clusters(self) -> Dict[str, Optional[JobQueueCluster]]:
         return {"local": None}
-        """
-        return {
-            "jureca-cpu":
-                SLURMCluster(
-                    queue="dc-cpu",
-                    project="jinm60",
-                    cores=128,
-                    memory="127G",
-                    interface="ib0",
-                    log_directory="~/logs/helloworld",
-                    processes=1,
-                    extra=[
-                        "--lifetime", "1h"
-                    ]
-                ),
-            "local": None
-        }
-        """
 
     @property
     def num_jobs(self) -> Dict[str, int]:
@@ -42,6 +29,6 @@ class Experiment(BaseExperiment):
     @property
     def runs(self) -> List[Run]:
         return [Run(uid="helloworld",
-                    experiment=self,
+                    experiment_name=self.name,
                     cluster="local",
                     cmd=["echo", "Hello World!"])]
