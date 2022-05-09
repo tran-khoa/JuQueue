@@ -71,6 +71,11 @@ class ExperimentManager:
             logging.info(f"Experiment {self.experiment.name} already finished.")
             return
 
+        # TODO rescale cluster on update
+        # TODO allow force-reinit of cluster, stopping all running experiments
+        # TODO runs that have not been scheduled yet should be updateable, lock should stop queueing new runs
+        # TODO allow run control, i.e. start/stopping all runs
+
         # Detect and load runs
         new_runs = set()
         updated_runs = set()
