@@ -85,7 +85,8 @@ class ExperimentManager:
             return
 
         for name, cluster in experiment.clusters.items():
-            cluster.adapt(maximum_jobs=experiment.num_jobs[name])
+            if cluster is not None:
+                cluster.adapt(maximum_jobs=experiment.num_jobs[name])
 
         # TODO allow force-reinit of cluster, stopping all running experiments
         # TODO runs that have not been scheduled yet should be updateable, lock should stop queueing new runs
