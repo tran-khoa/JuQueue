@@ -30,7 +30,7 @@ class Experiment(BaseExperiment):
                     memory="127G",
                     interface="ib0",
                     log_directory=(self.path / "slurm-logs").as_posix(),
-                    processes=1,
+                    processes=32,
                     extra=[
                         "--lifetime", "1h"
                     ]
@@ -40,7 +40,7 @@ class Experiment(BaseExperiment):
 
     @property
     def num_jobs(self) -> Dict[str, int]:
-        return {"jureca-cpu": 1}
+        return {"jureca-cpu": 5}
 
     @property
     def runs(self) -> List[Run]:
@@ -62,7 +62,7 @@ class Experiment(BaseExperiment):
             },
             parameter_format="eq",
             cluster="jureca-cpu",
-            cmd=["python3", "main.py", "emnist_simclr", "start_pretrain"],
+            cmd=["python3", "/work/biasadapt/scripts/conv_biasfit/main.py", "emnist_simclr", "start_pretrain"],
             experiment_name=self.name
         )
 

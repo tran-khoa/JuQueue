@@ -32,7 +32,7 @@ class Manager:
                 if xp.name not in self.managers:
                     self.managers[xp.name] = ExperimentManager(xp)
 
-                result = self.managers[xp.name].on_load(xp)
+                result = self.managers[xp.name].load_experiment(xp)
                 results[xp.name] = result
         return results
 
@@ -56,6 +56,19 @@ class ExperimentManager:
 
         self.__lock = Lock()
 
+    def _init_clusters(self, experiment):
+        for name, cluster in experiment.clusters.items():
+            if name in self.clients:
+                continue
+
+            if cluster is not None:
+                if hasattr(cluster, "log_directory"):
+                    Path(cluster.log_directory).expanduser().mkdir(parents=True, exist_ok=True)
+                cluster.adapt(maximum_jobs=self.experiment.num_jobs[name])
+                self.clients[name] = Client(cluster)
+            else:
+                self.clients[name] = Client()
+
     @property
     def runs(self) -> List[Run]:
         return list(tup["run"] for tup in self.detected_runs.values())
@@ -63,7 +76,7 @@ class ExperimentManager:
     def get_run(self, uid: str) -> Run:
         return self.detected_runs[uid]['run']
 
-    def on_load(self, experiment: BaseExperiment):
+    def load_experiment(self, experiment: BaseExperiment):
         self.__lock.acquire()
         self.experiment = experiment
 
@@ -71,7 +84,9 @@ class ExperimentManager:
             logging.info(f"Experiment {self.experiment.name} already finished.")
             return
 
-        # TODO rescale cluster on update
+        for name, cluster in experiment.clusters.items():
+            cluster.adapt(maximum_jobs=experiment.num_jobs[name])
+
         # TODO allow force-reinit of cluster, stopping all running experiments
         # TODO runs that have not been scheduled yet should be updateable, lock should stop queueing new runs
         # TODO allow run control, i.e. start/stopping all runs
@@ -128,19 +143,6 @@ class ExperimentManager:
             run.status = "finished"
         run.save_to_disk()
         self.__lock.release()
-
-    def _init_clusters(self, experiment):
-        for name, cluster in experiment.clusters.items():
-            if name in self.clients:
-                continue
-
-            if cluster is not None:
-                if hasattr(cluster, "log_directory"):
-                    Path(cluster.log_directory).expanduser().mkdir(parents=True, exist_ok=True)
-                cluster.adapt(maximum_jobs=self.experiment.num_jobs[name])
-                self.clients[name] = Client(cluster)
-            else:
-                self.clients[name] = Client()
 
     def _add_run(self, run: Run):
         future = None
