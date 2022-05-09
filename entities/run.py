@@ -4,16 +4,13 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Literal, List, Optional, Union
+from typing import Any, Dict, Literal, List, Optional
 from config import Config
-import subprocess
 
 from typing import TYPE_CHECKING
 
-from entities.parameter import Parameter, ParameterSet
-
 if TYPE_CHECKING:
-    from experiments import BaseExperiment
+    from entities.experiment import BaseExperiment
 
 
 @dataclass
@@ -23,6 +20,9 @@ class Run:
 
     #
     experiment: BaseExperiment
+
+    #
+    cluster: str
 
     #
     cmd: List[str]
@@ -36,8 +36,26 @@ class Run:
     #
     last_run: Optional[datetime] = field(default=None, init=False)
 
+    #
+    parameters: Dict[str, str] = field(default_factory=dict)
+
+    #
+    parameter_format: Literal['argparse', 'eq'] = 'argparse'
+
     def __post_init__(self):
         self.path.mkdir(parents=True, exist_ok=True)
+
+    @property
+    def parsed_cmd(self) -> List[str]:
+        cmd = list(self.cmd)
+        for key, value in self.parameters.items():
+            if self.parameter_format == "argparse":
+                cmd.extend([f"--{key}", value])
+            elif self.parameter_format == "eq":
+                cmd.append(f"{key}={value}")
+            else:
+                raise NotImplementedError()
+        return cmd
 
     @property
     def states(self) -> Dict[str, Any]:
@@ -74,26 +92,6 @@ class Run:
             return False
         return (self.uid == other.uid) \
                and (self.cmd == other.cmd) \
-               and (self.env == other.env)
-
-
-@dataclass
-class SweepRun(Run):
-    parameters: List[Parameter] = field(default_factory=list)
-    parameter_format: Literal['argparse', 'eq'] = 'argparse'
-
-    def __post_init__(self):
-        for param in self.parameters:
-            if self.parameter_format == "argparse":
-                self.cmd.extend([f"--{param.key}", param.value])
-            elif self.parameter_format == "eq":
-                self.cmd.append(f"{param.key}={param.value}")
-            else:
-                raise NotImplementedError()
-
-    def __eq__(self, other):
-        return super().__eq__(other) \
+               and (self.env == other.env) \
                and (self.parameters == other.parameters) \
                and (self.parameter_format == other.parameter_format)
-
-

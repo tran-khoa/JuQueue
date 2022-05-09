@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 from dataclasses import dataclass
 from dask_jobqueue import JobQueueCluster, SLURMCluster
@@ -11,12 +11,14 @@ from entities.run import Run
 class Experiment(BaseExperiment):
     @property
     def name(self) -> str:
-        return "HelloWorld"
+        return "simclr_1layer"
+
+    @property
+    def status(self) -> Literal['active', 'inactive']:
+        return "inactive"
 
     @property
     def clusters(self) -> Dict[str, Optional[JobQueueCluster]]:
-        return {"local": None}
-        """
         return {
             "jureca-cpu":
                 SLURMCluster(
@@ -33,7 +35,6 @@ class Experiment(BaseExperiment):
                 ),
             "local": None
         }
-        """
 
     @property
     def num_jobs(self) -> Dict[str, int]:

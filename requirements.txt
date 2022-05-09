@@ -1,2 +1,5 @@
 dask_jobqueue
 prompt_toolkit
+dill
+questionary
+tableprint
