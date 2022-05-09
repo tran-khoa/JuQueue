@@ -114,7 +114,7 @@ class ExperimentManager:
         if not is_successful:
             if (datetime.datetime.now() - run.last_run).seconds < self.experiment.fail_period:
                 logging.warning(f"{run} considered failed.")
-                self.detected_runs[run.uid].status = "failed"
+                self.detected_runs[run.uid]['run'].status = "failed"
             else:
                 logging.info(f"Retrying {run}...")
                 fut.retry()
