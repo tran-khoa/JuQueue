@@ -29,7 +29,7 @@ class Experiment(BaseExperiment):
                     cores=128,
                     memory="127G",
                     interface="ib0",
-                    log_directory="~/slurm_logs",
+                    log_directory=(self.path / "slurm-logs").as_posix(),
                     processes=1,
                     extra=[
                         "--lifetime", "1h"

@@ -9,7 +9,7 @@ from entities.run import Run
 
 
 class Executor:
-    def environment(self, run: Run):
+    def environment(self, run: Run) -> Dict[str, str]:
         env = run.env.copy()
 
         env['RUN_ID'] = run.uid
@@ -34,15 +34,15 @@ class SingularityExecutor(Executor):
         self.binds = binds or {}
         self.binds[Config.ROOT_DIR / "scripts" / "zygote.sh"] = SingularityExecutor.CONTAINER_ZYGOTE_PATH
 
-    def environment(self, run: Run):
+    def environment(self, run: Run) -> Dict[str, str]:
         env = super().environment(run)
         env['ZYGOTE_EXEC'] = shlex.join(run.cmd)
         env['ZYGOTE_DIR'] = run.path.as_posix()
         return env
 
-    def execute(self, run: Run):
+    def execute(self, run: Run) -> int:
         cmd = ["singularity", "run"]
-        for src, dst in self.binds:
+        for src, dst in self.binds.items():
             if src == "$RUN_PATH":
                 src = run.path
             cmd.extend(["--bind", f"{src}:{dst}"])
