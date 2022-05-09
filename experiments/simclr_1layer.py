@@ -24,7 +24,7 @@ class Experiment(BaseExperiment):
         return {
             "jureca-cpu":
                 SLURMCluster(
-                    queue="dc-cpu",
+                    queue="dc-cpu-bigmem",
                     project="jinm60",
                     cores=128,
                     memory="127G",
