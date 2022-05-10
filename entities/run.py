@@ -30,16 +30,23 @@ class Run:
     env: Dict[str, str] = field(default_factory=dict)
 
     #
-    status: Literal['active', 'failed', 'finished'] = field(default='active', init=False)
+    status: Literal['pending', 'failed', 'cancelled', 'finished'] = field(default='pending', init=False)
 
     #
     last_run: Optional[datetime] = field(default=None, init=False)
+
+    #
+    last_error: Optional[str] = field(default=None, init=False)
 
     #
     parameters: Dict[str, str] = field(default_factory=dict)
 
     #
     parameter_format: Literal['argparse', 'eq'] = 'argparse'
+
+    def __post_init__(self):
+        self.path.mkdir(parents=True, exist_ok=True)
+        self.log_path.mkdir(parents=True, exist_ok=True)
 
     def fork(self, uid: str) -> "Run":
         return Run(
@@ -51,9 +58,6 @@ class Run:
             parameters=dict(self.parameters),
             parameter_format=self.parameter_format
         )
-
-    def __post_init__(self):
-        self.path.mkdir(parents=True, exist_ok=True)
 
     @property
     def parsed_cmd(self) -> List[str]:
@@ -68,12 +72,21 @@ class Run:
         return cmd
 
     @property
-    def states(self) -> Dict[str, Any]:
-        return {"status": self.status, "last_run": self.last_run.isoformat()}
+    def _states(self) -> Dict[str, Any]:
+        return {"status": self.status, "last_run": self.last_run.isoformat(), "last_error": self.last_error}
+
+    def _restore_states(self, states: Dict[str, Any]):
+        self.status = states["status"]
+        self.last_run = datetime.fromisoformat(states["last_run"])
+        self.last_error = states["last_error"]
 
     @property
     def path(self) -> Path:
         return Config.WORK_DIR / Path(f"{self.experiment_name}/{self.uid}")
+
+    @property
+    def log_path(self) -> Path:
+        return self.path / "logs"
 
     def __repr__(self):
         return f"Run(uid={self.uid}, experiment={self.experiment_name}, status={self.status})"
@@ -84,7 +97,7 @@ class Run:
 
     def save_to_disk(self):
         with open(self.__metadata_path, 'wt') as f:
-            json.dump({"states": self.states}, f)
+            json.dump(self._states, f)
 
     def load_from_disk(self) -> bool:
         if not self.__metadata_path.exists():
@@ -93,8 +106,7 @@ class Run:
         with open(self.__metadata_path, 'rt') as f:
             d = json.load(f)
 
-        self.status = d["states"]["status"]
-        self.last_run = datetime.fromisoformat(d["states"]["last_run"])
+        self._restore_states(d)
         return True
 
     def __eq__(self, other):

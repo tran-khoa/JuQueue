@@ -2,7 +2,7 @@ import os
 import sys
 import pickle
 import warnings
-from typing import Any
+from typing import Any, Dict, List, Set
 
 import questionary
 import tableprint as tp
@@ -10,8 +10,15 @@ import zmq
 from questionary import Choice
 
 from config import Config
+from engine.manager import ALL_EXPERIMENTS
+from entities.run import Run
+from utils import Response
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
+
+
+class ExperimentClient():
+    pass
 
 
 class Client:
@@ -21,7 +28,7 @@ class Client:
         self.socket.connect(Config.SOCKET_ADDRESS)
 
         try:
-            self.heartbeat()
+            self.__heartbeat()
         except TimeoutError:
             print("Could not receive heartbeat from server, is it running?")
             print("Exiting.")
@@ -35,35 +42,41 @@ class Client:
         self.__execute_no_response(meth, **kwargs)
 
         if self.socket.poll(timeout=3000):
+            # noinspection PyTypeChecker
             return pickle.loads(self.socket.recv())
         else:
             raise TimeoutError()
 
-    def heartbeat(self):
+    def __heartbeat(self):
         self.__execute("heartbeat")
         print("Server is still running.")
 
     def list_experiments(self):
-        experiments = self.__execute("get_experiments")
+        response: Response[List[str]] = self.__execute("get_experiments")
 
         tp.table(headers=["id", "name"],
-                 data=list(enumerate(experiments)))
+                 data=list(enumerate(response.result)))
 
     def list_runs(self):
-        experiments = self.__execute("get_experiments")
+        response: Response[List[str]] = self.__execute("get_experiments")
+        experiments = response.result
 
         experiment_name = questionary.select("Select an experiment",
-                                choices=list(experiments) + ["All"]).ask()
-        if experiment_name == "All":
+                                choices=[Choice(xp, xp) for xp in experiments]
+                                        + [Choice("All experiments", ALL_EXPERIMENTS)]).ask()
+
+        response: Response[List[Run]] = self.__execute("get_runs", experiment_name=experiment_name).response
+        if not response.success:
+            print("Error:")
+            print(response.reason)
+
+        runs = response.result
+        if experiment_name == ALL_EXPERIMENTS:
             tp.table(headers=["Experiment", "UID", "Status"],
-                     data=[(name, run.uid, run.status) for name in
-                           experiments
-                           for run in self.__execute("get_runs", experiment_name=name)])
+                     data=[(run.experiment_name, run.uid, run.status) for run in runs])
         else:
-            runs = self.__execute("get_runs", experiment_name=experiment_name)
             tp.table(headers=["UID", "Status"],
-                     data=[(run.uid, run.status) for run in
-                           runs])
+                     data=[(run.uid, run.status) for run in runs])
 
     def stop_server(self):
         confirm = questionary.confirm("Are you sure?")
@@ -76,9 +89,12 @@ class Client:
 
     def reload(self):
         print("Reloading experiments...")
-        results = self.__execute("reload")
+        response: Response[Dict[str, Dict[str, Set[str]]]] = self.__execute("reload")
+        if not response.success:
+            print("Server reported a problem:")
+            print(response.reason)
 
-        for xp, result in results.items():
+        for xp, result in response.result.items():
             print(f"Loaded experiment {xp}...")
 
             if result["new"]:
@@ -97,7 +113,6 @@ class Client:
     def quit(self):
         sys.exit(0)
 
-
     def loop(self):
         os.system("clear")
 
@@ -106,7 +121,6 @@ class Client:
                                      choices=[Choice("List experiments", self.list_experiments),
                                               Choice("List runs", self.list_runs),
                                               Choice("Reload experiments", self.reload),
-                                              Choice("Heartbeat", self.heartbeat),
                                               Choice("Stop server", self.stop_server),
                                               Choice("Quit", self.quit)]).ask()
             os.system("clear")

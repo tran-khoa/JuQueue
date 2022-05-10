@@ -18,9 +18,16 @@ class Executor:
         return env
 
     def execute(self, run: Run) -> int:
-        return subprocess.call(run.cmd,
-                               env=self.environment(run),
-                               cwd=run.path.as_posix())
+        stdout = (run.log_path / "stdout.log").open("at")
+        stderr = (run.log_path / "stderr.log").open("at")
+        status = subprocess.run(run.cmd,
+                                env=self.environment(run),
+                                cwd=run.path.as_posix(),
+                                stdout=stdout,
+                                stderr=stderr).returncode
+        stdout.close()
+        stderr.close()
+        return status
 
     def create(self, run: Run) -> Callable:
         return partial(self.execute, run)
@@ -29,7 +36,8 @@ class Executor:
 class SingularityExecutor(Executor):
     CONTAINER_ZYGOTE_PATH = "/juqueue/zygote.sh"
 
-    def __init__(self, container_path: Union[Path, str], binds: Optional[Dict[Union[str, Path], Union[str, Path]]] = None):
+    def __init__(self, container_path: Union[Path, str],
+                 binds: Optional[Dict[Union[str, Path], Union[str, Path]]] = None):
         self.container_path = Path(container_path)
         self.binds = binds or {}
         self.binds[Config.ROOT_DIR / "scripts" / "zygote.sh"] = SingularityExecutor.CONTAINER_ZYGOTE_PATH
@@ -48,4 +56,4 @@ class SingularityExecutor(Executor):
             cmd.extend(["--bind", f"{src}:{dst}"])
         cmd.extend([self.container_path.as_posix(), "/bin/bash", SingularityExecutor.CONTAINER_ZYGOTE_PATH])
 
-        return subprocess.call(cmd, env=self.environment(run))
+        return subprocess.run(cmd, env=self.environment(run)).returncode

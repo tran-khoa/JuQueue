@@ -3,7 +3,7 @@ import importlib
 import logging
 from pathlib import Path
 from threading import Lock
-from typing import List, Union
+from typing import Dict, List, Literal, Optional, Union
 
 from dask.distributed import Client, Future
 
@@ -11,7 +11,174 @@ from entities.experiment import BaseExperiment
 from entities.run import Run
 
 
+ALL_EXPERIMENTS = "@ALL_EXPERIMENTS"
+ALL_RUNS = "@ALL_RUNS"
+
+
+class ExperimentManager:
+
+    def __init__(self):
+        self._experiment: BaseExperiment = None
+        self._loaded_runs: Dict[str, Run] = {}
+        self._futures: Dict[str, Future] = {}
+        self._clients: Dict[str, Client] = {}
+
+        self.__lock = Lock()
+
+    @property
+    def runs(self) -> List[Run]:
+        return list(self._loaded_runs.values())
+
+    @property
+    def future_states(self) -> Dict[str, Literal["pending", "cancelled", "lost", "error", "finished"]]:
+        return {
+            uid: fut.status for uid, fut in self._futures.items()
+        }
+
+    def run_by_id(self, uid: str) -> Run:
+        return self._loaded_runs[uid]
+
+    def load_experiment(self, experiment: BaseExperiment):
+        self.__lock.acquire()
+        self._experiment = experiment
+
+        if self._experiment.status == "finished":
+            logging.info(f"Experiment {self._experiment.name} already finished.")
+            return
+
+        for name, cluster in experiment.clusters.items():
+            if cluster is not None:
+                cluster.adapt(maximum_jobs=experiment.num_jobs[name])
+
+        # TODO allow force-reinit of cluster, stopping all running experiments
+        # TODO runs that have not been scheduled yet should be updateable, lock should stop queueing new runs
+        # TODO allow run control, i.e. start/stopping all runs
+
+        # Detect and load runs
+        ids_new = set()
+        ids_updated = set()
+        ids_deleted = set(self._loaded_runs.keys())
+
+        for run in self._experiment.runs:
+            run.load_from_disk()
+
+            if run.uid.startswith("@"):
+                logging.error(f"Run IDs cannot start with @, found run {run.uid}")
+                raise ValueError(f"Run IDs cannot start with @, found run {run.uid}")
+
+            if run.uid in self._loaded_runs:
+                if run == self.run_by_id(run.uid):
+                    logging.info(f"Existing run {run} is unchanged.")
+                else:
+                    logging.info(f"Updating existing run {run}...")
+                    logging.warning(f"{run} has changed, this has not been implemented yet :/")
+                    ids_updated.add(run)
+                    self._update_run(run)
+
+                ids_deleted.remove(run.uid)
+            else:
+                logging.info(f"Found new run {run}...")
+                ids_new.add(run)
+                self._add_run(run)
+
+        for run_id in ids_deleted:
+            run = self._loaded_runs[run_id]
+            logging.info(f"Run {run} removed from experiment.")
+            self._delete_run(run)
+        self.__lock.release()
+
+        return {"new": ids_new, "updated": ids_updated, "deleted": ids_deleted}
+
+    def resume_runs(self, runs: List[Run]) -> List[Run]:
+        self.__lock.acquire()
+        resumed_runs = []
+        for run in runs:
+            if run.status in ("failed", "cancelled"):
+                resumed_runs.append(run)
+                run.status = "pending"
+                run.last_run = datetime.datetime.now()
+                run.save_to_disk()
+
+                self._futures[run.uid] = self._submit_run(run)
+
+        self.__lock.release()
+
+        return resumed_runs
+
+    def _init_clusters(self, experiment):
+        for name, cluster in experiment.clusters.items():
+            if name in self._clients:
+                continue
+
+            if cluster is not None:
+                if hasattr(cluster, "log_directory"):
+                    Path(cluster.log_directory).expanduser().mkdir(parents=True, exist_ok=True)
+                cluster.adapt(maximum_jobs=self._experiment.num_jobs[name])
+                self._clients[name] = Client(cluster)
+            else:
+                self._clients[name] = Client()
+
+    def _on_run_ended(self, fut: Future):
+        xp, run_uid = fut.key.split('@')
+        if xp != self._experiment.name:
+            logging.warning("on_run_ended received future from different experiment")
+            return
+
+        is_successful = (fut.status == 'finished' and fut.result() == 0)
+        is_cancelled = (fut.status == 'cancelled')
+
+        self.__lock.acquire()
+        run = self._loaded_runs[run_uid]
+
+        if run.status != "pending":
+            logging.error(f"Ended {run} with status {run.status} instead of pending!")
+            run.status = "pending"
+
+        if is_cancelled:
+            run.status = "cancelled"
+        elif is_successful:
+            logging.info(f"{run} finished.")
+            run.status = "finished"
+        else:
+            if (datetime.datetime.now() - run.last_run).seconds < self._experiment.fail_period:
+                logging.warning(f"{run} considered failed.")
+                run.status = "failed"
+            else:
+                logging.info(f"Retrying {run}...")
+                fut.retry()
+
+        run.save_to_disk()
+        self.__lock.release()
+
+    def _add_run(self, run: Run):
+        if run.status == 'pending':
+            future = self._submit_run(run)
+            run.last_run = datetime.datetime.now()
+            run.save_to_disk()
+            self._futures = future
+
+        self._loaded_runs[run.uid] = run
+
+    def _delete_run(self, run: Run):
+        logging.info(f"Cancelling {run}...")
+
+        del self._loaded_runs[run.uid]
+        if run.uid in self._futures:
+            self._futures[run.uid].cancel(force=True)
+            del self._futures[run.uid]
+
+    def _update_run(self, run: Run):
+        raise NotImplementedError()
+
+    def _submit_run(self, run: Run) -> Future:
+        client = self._clients[run.cluster]
+        fut = client.submit(self._experiment.executor.create(run), key=f"{self._experiment.name}@{run.uid}")
+        fut.add_done_callback(self._on_run_ended)
+        return fut
+
+
 class Manager:
+    managers: Dict[str, ExperimentManager]
 
     def __init__(self, experiments_path: Union[Path, str]):
         self.experiments_path = Path(experiments_path)
@@ -30,7 +197,7 @@ class Manager:
             xp: BaseExperiment = module.Experiment()
             if xp.status == "active":
                 if xp.name not in self.managers:
-                    self.managers[xp.name] = ExperimentManager(xp)
+                    self.managers[xp.name] = ExperimentManager()
 
                 result = self.managers[xp.name].load_experiment(xp)
                 results[xp.name] = result
@@ -41,129 +208,9 @@ class Manager:
         return list(self.managers.keys())
 
     def get_runs(self, experiment_name: str):
+        if experiment_name == ALL_EXPERIMENTS:
+            return [run for manager in self.managers.values() for run in manager.runs]
+
         if experiment_name not in self.managers:
             return None
         return self.managers[experiment_name].runs
-
-
-class ExperimentManager:
-    def __init__(self, experiment: BaseExperiment):
-        self.experiment = experiment
-        self.detected_runs = {}
-        self.clients = {}
-
-        self._init_clusters(experiment)
-
-        self.__lock = Lock()
-
-    def _init_clusters(self, experiment):
-        for name, cluster in experiment.clusters.items():
-            if name in self.clients:
-                continue
-
-            if cluster is not None:
-                if hasattr(cluster, "log_directory"):
-                    Path(cluster.log_directory).expanduser().mkdir(parents=True, exist_ok=True)
-                cluster.adapt(maximum_jobs=self.experiment.num_jobs[name])
-                self.clients[name] = Client(cluster)
-            else:
-                self.clients[name] = Client()
-
-    @property
-    def runs(self) -> List[Run]:
-        return list(tup["run"] for tup in self.detected_runs.values())
-
-    def get_run(self, uid: str) -> Run:
-        return self.detected_runs[uid]['run']
-
-    def load_experiment(self, experiment: BaseExperiment):
-        self.__lock.acquire()
-        self.experiment = experiment
-
-        if self.experiment.status == "finished":
-            logging.info(f"Experiment {self.experiment.name} already finished.")
-            return
-
-        for name, cluster in experiment.clusters.items():
-            if cluster is not None:
-                cluster.adapt(maximum_jobs=experiment.num_jobs[name])
-
-        # TODO allow force-reinit of cluster, stopping all running experiments
-        # TODO runs that have not been scheduled yet should be updateable, lock should stop queueing new runs
-        # TODO allow run control, i.e. start/stopping all runs
-
-        # Detect and load runs
-        new_runs = set()
-        updated_runs = set()
-        deleted_runs = set(self.detected_runs.keys())
-        for run in self.experiment.runs:
-            run.load_from_disk()
-
-            if run.uid in self.detected_runs:
-                if run == self.get_run(run.uid):
-                    logging.info(f"Existing run {run} is unchanged.")
-                else:
-                    logging.info(f"Updating existing run {run}...")
-                    logging.warning(f"{run} has changed, this has not been implemented yet :/")
-                    updated_runs.add(run)
-                    # self.on_run_updated(run)
-
-                deleted_runs.remove(run.uid)
-            else:
-                logging.info(f"Found new run {run}...")
-                new_runs.add(run)
-                self._add_run(run)
-
-        for run in deleted_runs:
-            logging.info(f"Run {run} removed from experiment.")
-            self._delete_run(run)
-        self.__lock.release()
-
-        return {"new": new_runs, "updated": updated_runs, "deleted": deleted_runs}
-
-    def on_run_ended(self, fut: Future):
-        xp, run_uid = fut.key.split('@')
-        if xp != self.experiment.name:
-            logging.warning("on_run_ended received future from different experiment")
-            return
-
-        is_successful = (fut.status == 'finished' and fut.result() == 0)
-
-        self.__lock.acquire()
-
-        run = self.detected_runs[run_uid]['run']
-        if not is_successful:
-            if (datetime.datetime.now() - run.last_run).seconds < self.experiment.fail_period:
-                logging.warning(f"{run} considered failed.")
-                self.detected_runs[run.uid]['run'].status = "failed"
-            else:
-                logging.info(f"Retrying {run}...")
-                fut.retry()
-        else:
-            logging.info(f"{run} finished.")
-            run.status = "finished"
-        run.save_to_disk()
-        self.__lock.release()
-
-    def _add_run(self, run: Run):
-        future = None
-
-        if run.status == 'active':
-            future = self.__submit_run(run)
-            run.last_run = datetime.datetime.now()
-            run.save_to_disk()
-
-        self.detected_runs[run.uid] = {"run": run, "fut": future}
-
-    def _delete_run(self, run: Run):
-        self.detected_runs[run.uid]["fut"].cancel(force=True)
-        del self.detected_runs[run.uid]
-
-    def _update_run(self, run: Run):
-        raise NotImplementedError()
-
-    def __submit_run(self, run: Run) -> Future:
-        client = self.clients[run.cluster]
-        fut = client.submit(self.experiment.executor.create(run), key=f"{self.experiment.name}@{run.uid}")
-        fut.add_done_callback(self.on_run_ended)
-        return fut
