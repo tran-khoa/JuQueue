@@ -17,7 +17,7 @@ class Experiment(BaseExperiment):
 
     @property
     def status(self) -> Literal['active', 'inactive']:
-        return "inactive"
+        return "active"
 
     @property
     def clusters(self) -> Dict[str, Optional[JobQueueCluster]]:
@@ -27,10 +27,11 @@ class Experiment(BaseExperiment):
                     queue="dc-cpu-bigmem",
                     project="jinm60",
                     cores=128,
-                    memory="127G",
+                    memory="1024G",
                     interface="ib0",
                     log_directory=(self.path / "slurm-logs").as_posix(),
                     processes=32,
+                    walltime="24:00:00",
                     extra=[
                         "--lifetime", "1h"
                     ]
