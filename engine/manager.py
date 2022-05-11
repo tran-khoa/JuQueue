@@ -50,6 +50,8 @@ class ExperimentManager:
             if cluster is not None:
                 cluster.adapt(maximum_jobs=experiment.num_jobs[name])
 
+        self._init_clusters(experiment)
+
         # TODO allow force-reinit of cluster, stopping all running experiments
         # TODO runs that have not been scheduled yet should be updateable, lock should stop queueing new runs
         # TODO allow run control, i.e. start/stopping all runs
@@ -108,7 +110,7 @@ class ExperimentManager:
     def _init_clusters(self, experiment):
         for name, cluster in experiment.clusters.items():
             if name in self._clients:
-                continue
+                logging.warning(f"Cluster '{name}' already registered, ignoring...")
 
             if cluster is not None:
                 if hasattr(cluster, "log_directory"):
