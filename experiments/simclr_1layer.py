@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Literal, Optional
 
 from dask_jobqueue import JobQueueCluster, SLURMCluster
+from dask_jobqueue.local import LocalCluster
 
 from entities.executor import Executor, SingularityExecutor
 from entities.experiment import BaseExperiment
@@ -50,12 +51,12 @@ class Experiment(BaseExperiment):
                         "--lifetime", "1h"
                     ]
                 ),
-            "local": None
+            "local": LocalCluster()
         }
 
     @property
     def num_jobs(self) -> Dict[str, int]:
-        return {"jureca-gpu": 10}
+        return {"jureca-gpu": 10, "jureca-cpu": 0, "local": 0}
 
     @property
     def runs(self) -> List[Run]:
@@ -77,7 +78,7 @@ class Experiment(BaseExperiment):
                 "gpu": True
             },
             parameter_format="eq",
-            cluster="jureca-cpu",
+            cluster="jureca-gpu",
             cmd=["python3", "/work/biasadapt/scripts/conv_biasfit/main.py", "emnist_simclr", "start_pretrain"],
             experiment_name=self.name
         )
