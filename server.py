@@ -4,7 +4,7 @@ import pickle
 import sys
 import traceback
 import warnings
-from typing import Callable, Dict, List, Set
+from typing import Dict, List, Set
 
 import zmq
 

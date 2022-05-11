@@ -1,6 +1,6 @@
 import os
-import sys
 import pickle
+import sys
 import warnings
 from collections import Counter
 from typing import Any, Dict, List, Set
@@ -114,7 +114,7 @@ class Client:
         tp.table(headers=["id", "name"],
                  data=list(enumerate(response.result)))
         xp = questionary.select("Select an experiment",
-                                 choices=response.result).ask()
+                                choices=response.result).ask()
         os.system("clear")
         xp_client = ExperimentClient(xp, self.socket)
         xp_client.loop()

@@ -1,6 +1,5 @@
-from typing import Any, Generic, NamedTuple, Optional, TypeVar
 from dataclasses import dataclass
-
+from typing import Generic, Optional, TypeVar
 
 ResponseType = TypeVar("ResponseType")
 

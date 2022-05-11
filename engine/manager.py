@@ -2,7 +2,6 @@ import asyncio
 import datetime
 import importlib
 import logging
-import time
 from pathlib import Path
 from threading import Lock
 from typing import Dict, List, Literal, Optional, Union
@@ -12,7 +11,6 @@ from dask.distributed import Client, Future, Sub
 from entities.experiment import BaseExperiment
 from entities.run import Run
 
-
 ALL_EXPERIMENTS = "@ALL_EXPERIMENTS"
 ALL_RUNS = "@ALL_RUNS"
 
@@ -20,7 +18,8 @@ ALL_RUNS = "@ALL_RUNS"
 class ExperimentManager:
 
     def __init__(self):
-        self._experiment: BaseExperiment
+        # noinspection PyTypeChecker
+        self._experiment: BaseExperiment = None
         self._loaded_runs: Dict[str, Run] = {}
         self._futures: Dict[str, Future] = {}
         self._clients: Dict[str, Client] = {}

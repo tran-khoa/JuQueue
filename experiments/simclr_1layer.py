@@ -41,10 +41,10 @@ class Experiment(BaseExperiment):
                     queue="dc-gpu",
                     project="jinm60",
                     cores=128,
-                    memory="1024G",
+                    memory="512G",
                     interface="ib0",
                     log_directory=(self.path / "slurm-logs").as_posix(),
-                    processes=32,
+                    processes=4,
                     walltime="24:00:00",
                     extra=[
                         "--lifetime", "1h"
@@ -55,14 +55,14 @@ class Experiment(BaseExperiment):
 
     @property
     def num_jobs(self) -> Dict[str, int]:
-        return {"jureca-cpu": 5}
+        return {"jureca-gpu": 10}
 
     @property
     def runs(self) -> List[Run]:
         runs = []
 
         base_run = Run(
-            uid="_base",
+            run_id="_base",
             env={"PYTHONPATH": "/work/biasadapt"},
             parameters={
                 "data_path": "/datasets",
@@ -73,7 +73,8 @@ class Experiment(BaseExperiment):
                 "num_layers": 1,
                 "max_epochs": 50,
                 "data_workers": 0,
-                "cleanup_checkpoints": True
+                "cleanup_checkpoints": True,
+                "gpu": True
             },
             parameter_format="eq",
             cluster="jureca-cpu",
@@ -112,5 +113,5 @@ class Experiment(BaseExperiment):
             binds={
                 "$RUN_PATH": "/rundir",
                 "/p/project/jinm60/users/tran4/datasets": "/datasets",
-                "/p/project/jinm60/users/tran4/biasadapt_git":"/work/biasadapt"
+                "/p/project/jinm60/users/tran4/biasadapt_git": "/work/biasadapt"
             })
