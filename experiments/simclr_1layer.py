@@ -51,7 +51,7 @@ class Experiment(BaseExperiment):
                         "--lifetime", "1h"
                     ]
                 ),
-            "local": LocalCluster()
+            "local": LocalCluster(cores=0, memory='0G')
         }
 
     @property
