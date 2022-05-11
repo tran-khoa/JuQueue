@@ -36,6 +36,20 @@ class Experiment(BaseExperiment):
                         "--lifetime", "1h"
                     ]
                 ),
+            "jureca-gpu":
+                SLURMCluster(
+                    queue="dc-gpu",
+                    project="jinm60",
+                    cores=128,
+                    memory="1024G",
+                    interface="ib0",
+                    log_directory=(self.path / "slurm-logs").as_posix(),
+                    processes=32,
+                    walltime="24:00:00",
+                    extra=[
+                        "--lifetime", "1h"
+                    ]
+                ),
             "local": None
         }
 
@@ -80,7 +94,7 @@ class Experiment(BaseExperiment):
                 if idx == 1:
                     name += "_erasing"
 
-                run = base_run.fork(uid=name)
+                run = base_run.fork(run_id=name)
                 run.parameters.update({
                     "kernel_sizes": f"[{k}]",
                     "conv_channels": f"[{c}]",

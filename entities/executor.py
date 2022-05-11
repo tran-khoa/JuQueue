@@ -1,8 +1,12 @@
 import shlex
 import subprocess
+import threading
 from functools import partial
 from pathlib import Path
+from threading import Thread
 from typing import Callable, Dict, Optional, Union
+
+from dask.distributed import Pub
 
 from config import Config
 from entities.run import Run
@@ -12,12 +16,22 @@ class Executor:
     def environment(self, run: Run) -> Dict[str, str]:
         env = run.env.copy()
 
-        env['RUN_ID'] = run.uid
+        env['RUN_ID'] = run.run_id
         env['EXPERIMENT_ID'] = run.experiment_name
 
         return env
 
+    def __heartbeat(self, run: Run):
+        pub = Pub(f'{run.experiment_name}_heartbeat')
+        pub.put(f"{run.run_id}")
+        self.create_heartbeat_timer(run).start()
+
+    def create_heartbeat_timer(self, run: Run):
+        return threading.Timer(Config.HEARTBEAT_INTERVAL, partial(self.__heartbeat, run))
+
     def execute(self, run: Run) -> int:
+        self.create_heartbeat_timer(run).start()
+
         stdout = (run.log_path / "stdout.log").open("at")
         stderr = (run.log_path / "stderr.log").open("at")
         status = subprocess.run(run.cmd,
@@ -49,6 +63,11 @@ class SingularityExecutor(Executor):
         return env
 
     def execute(self, run: Run) -> int:
+        self.create_heartbeat_timer(run).start()
+
+        stdout = (run.log_path / "stdout.log").open("at")
+        stderr = (run.log_path / "stderr.log").open("at")
+
         cmd = ["singularity", "run"]
         for src, dst in self.binds.items():
             if src == "$RUN_PATH":
@@ -56,4 +75,10 @@ class SingularityExecutor(Executor):
             cmd.extend(["--bind", f"{src}:{dst}"])
         cmd.extend([self.container_path.as_posix(), "/bin/bash", SingularityExecutor.CONTAINER_ZYGOTE_PATH])
 
-        return subprocess.run(cmd, env=self.environment(run)).returncode
+        result = subprocess.run(cmd,
+                                env=self.environment(run),
+                                stdout=stdout,
+                                stderr=stderr).returncode
+        stdout.close()
+        stderr.close()
+        return result

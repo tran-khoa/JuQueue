@@ -1,11 +1,13 @@
+import asyncio
 import datetime
 import importlib
 import logging
+import time
 from pathlib import Path
 from threading import Lock
 from typing import Dict, List, Literal, Optional, Union
 
-from dask.distributed import Client, Future
+from dask.distributed import Client, Future, Sub
 
 from entities.experiment import BaseExperiment
 from entities.run import Run
@@ -18,12 +20,13 @@ ALL_RUNS = "@ALL_RUNS"
 class ExperimentManager:
 
     def __init__(self):
-        self._experiment: BaseExperiment = None
+        self._experiment: BaseExperiment
         self._loaded_runs: Dict[str, Run] = {}
         self._futures: Dict[str, Future] = {}
         self._clients: Dict[str, Client] = {}
 
         self.__lock = Lock()
+        self.__heartbeat_listener = asyncio.create_task(self._heartbeat_run())
 
     @property
     def runs(self) -> List[Run]:
@@ -32,11 +35,11 @@ class ExperimentManager:
     @property
     def future_states(self) -> Dict[str, Literal["pending", "cancelled", "lost", "error", "finished"]]:
         return {
-            uid: fut.status for uid, fut in self._futures.items()
+            run_id: fut.status for run_id, fut in self._futures.items()
         }
 
-    def run_by_id(self, uid: str) -> Run:
-        return self._loaded_runs[uid]
+    def run_by_id(self, run_id: str) -> Run:
+        return self._loaded_runs[run_id]
 
     def load_experiment(self, experiment: BaseExperiment):
         self.__lock.acquire()
@@ -50,7 +53,7 @@ class ExperimentManager:
             if cluster is not None:
                 cluster.adapt(maximum_jobs=experiment.num_jobs[name])
 
-        self._init_clusters(experiment)
+        self.init_clusters(experiment)
 
         # TODO allow force-reinit of cluster, stopping all running experiments
         # TODO runs that have not been scheduled yet should be updateable, lock should stop queueing new runs
@@ -64,12 +67,12 @@ class ExperimentManager:
         for run in self._experiment.runs:
             run.load_from_disk()
 
-            if run.uid.startswith("@"):
-                logging.error(f"Run IDs cannot start with @, found run {run.uid}")
-                raise ValueError(f"Run IDs cannot start with @, found run {run.uid}")
+            if run.run_id.startswith("@"):
+                logging.error(f"Run IDs cannot start with @, found run {run.run_id}")
+                raise ValueError(f"Run IDs cannot start with @, found run {run.run_id}")
 
-            if run.uid in self._loaded_runs:
-                if run == self.run_by_id(run.uid):
+            if run.run_id in self._loaded_runs:
+                if run == self.run_by_id(run.run_id):
                     logging.info(f"Existing run {run} is unchanged.")
                 else:
                     logging.info(f"Updating existing run {run}...")
@@ -77,7 +80,7 @@ class ExperimentManager:
                     ids_updated.add(run)
                     self._update_run(run)
 
-                ids_deleted.remove(run.uid)
+                ids_deleted.remove(run.run_id)
             else:
                 logging.info(f"Found new run {run}...")
                 ids_new.add(run)
@@ -101,16 +104,26 @@ class ExperimentManager:
                 run.last_run = datetime.datetime.now()
                 run.save_to_disk()
 
-                self._futures[run.uid] = self._submit_run(run)
+                self._futures[run.run_id] = self._submit_run(run)
 
         self.__lock.release()
 
         return resumed_runs
 
-    def _init_clusters(self, experiment):
+    def init_clusters(self, experiment: Optional[BaseExperiment] = None, force_reload: bool = False):
+        if experiment is None:
+            experiment = self._experiment
+
         for name, cluster in experiment.clusters.items():
             if name in self._clients:
-                logging.warning(f"Cluster '{name}' already registered, ignoring...")
+                if not force_reload:
+                    logging.info(f"Client '{name}' already registered, ignoring...")
+                    continue
+                else:
+                    client = self._clients[name]
+                    if client:
+                        logging.info(f"Client '{name}' is being closed and reloaded...")
+                        client.close()
 
             if cluster is not None:
                 if hasattr(cluster, "log_directory"):
@@ -132,8 +145,8 @@ class ExperimentManager:
         self.__lock.acquire()
         run = self._loaded_runs[run_uid]
 
-        if run.status != "pending":
-            logging.error(f"Ended {run} with status {run.status} instead of pending!")
+        if run.status not in ("pending", "running"):
+            logging.error(f"Ended {run} with status {run.status}!")
             run.status = "pending"
 
         if is_cancelled:
@@ -159,24 +172,44 @@ class ExperimentManager:
             run.save_to_disk()
             self._futures = future
 
-        self._loaded_runs[run.uid] = run
+        self._loaded_runs[run.run_id] = run
 
     def _delete_run(self, run: Run):
         logging.info(f"Cancelling {run}...")
 
-        del self._loaded_runs[run.uid]
-        if run.uid in self._futures:
-            self._futures[run.uid].cancel(force=True)
-            del self._futures[run.uid]
+        del self._loaded_runs[run.run_id]
+        if run.run_id in self._futures:
+            self._futures[run.run_id].cancel(force=True)
+            del self._futures[run.run_id]
 
     def _update_run(self, run: Run):
         raise NotImplementedError()
 
     def _submit_run(self, run: Run) -> Future:
         client = self._clients[run.cluster]
-        fut = client.submit(self._experiment.executor.create(run), key=f"{self._experiment.name}@{run.uid}")
+        fut = client.submit(self._experiment.executor.create(run), key=f"{self._experiment.name}@{run.run_id}")
         fut.add_done_callback(self._on_run_ended)
         return fut
+
+    async def _heartbeat_run(self):
+        async for run_id in Sub(f"{self._experiment.name}_heartbeat"):
+            self.__lock.acquire()
+            run = self.run_by_id(run_id)
+            if not run:
+                logging.warning(f"[{self._experiment.name}] Discarding heartbeat of unknown run {run_id}.")
+                continue
+            run.status = "running"
+            run.last_heartbeat = datetime.datetime.now()
+            run.save_to_disk()
+            self.__lock.release()
+
+    def stop(self):
+        self.__heartbeat_listener.cancel()
+        for fut in self._futures.values():
+            fut.cancel()
+
+        self.__lock.acquire()
+        self.__lock.release()
 
 
 class Manager:

@@ -4,18 +4,15 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Literal, Optional
 
 from config import Config
-
-if TYPE_CHECKING:
-    from entities.experiment import BaseExperiment
 
 
 @dataclass
 class Run:
     # Run identifier, unique inside the respective experiment, equal for runs with the same hyperparameters
-    uid: str
+    run_id: str
 
     #
     experiment_name: str
@@ -30,13 +27,16 @@ class Run:
     env: Dict[str, str] = field(default_factory=dict)
 
     #
-    status: Literal['pending', 'failed', 'cancelled', 'finished'] = field(default='pending', init=False)
+    status: Literal['running', 'pending', 'failed', 'cancelled', 'finished'] = field(default='pending', init=False)
 
     #
     last_run: Optional[datetime] = field(default=None, init=False)
 
     #
     last_error: Optional[str] = field(default=None, init=False)
+
+    #
+    last_heartbeat: Optional[datetime] = field(default=None, init=False)
 
     #
     parameters: Dict[str, str] = field(default_factory=dict)
@@ -48,9 +48,9 @@ class Run:
         self.path.mkdir(parents=True, exist_ok=True)
         self.log_path.mkdir(parents=True, exist_ok=True)
 
-    def fork(self, uid: str) -> "Run":
+    def fork(self, run_id: str) -> "Run":
         return Run(
-            uid=uid,
+            run_id=run_id,
             experiment_name=self.experiment_name,
             cluster=self.cluster,
             cmd=list(self.cmd),
@@ -58,6 +58,10 @@ class Run:
             parameters=dict(self.parameters),
             parameter_format=self.parameter_format
         )
+
+    @property
+    def global_id(self) -> str:
+        return f"{self.experiment_name}@{self.run_id}"
 
     @property
     def parsed_cmd(self) -> List[str]:
@@ -82,14 +86,14 @@ class Run:
 
     @property
     def path(self) -> Path:
-        return Config.WORK_DIR / Path(f"{self.experiment_name}/{self.uid}")
+        return Config.WORK_DIR / Path(f"{self.experiment_name}/{self.run_id}")
 
     @property
     def log_path(self) -> Path:
         return self.path / "logs"
 
     def __repr__(self):
-        return f"Run(uid={self.uid}, experiment={self.experiment_name}, status={self.status})"
+        return f"Run(uid={self.run_id}, experiment={self.experiment_name}, status={self.status})"
 
     @property
     def __metadata_path(self) -> Path:
@@ -112,11 +116,11 @@ class Run:
     def __eq__(self, other):
         if not isinstance(other, Run):
             return False
-        return (self.uid == other.uid) \
+        return (self.run_id == other.run_id) \
                and (self.cmd == other.cmd) \
                and (self.env == other.env) \
                and (self.parameters == other.parameters) \
                and (self.parameter_format == other.parameter_format)
 
     def __hash__(self) -> int:
-        return hash(self.experiment_name + self.uid)
+        return hash(self.experiment_name + self.run_id)

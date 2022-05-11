@@ -52,8 +52,11 @@ class ExperimentClient:
             print(f"Error: {_runs.reason}")
             return
 
-        tp.table(headers=["UID", "Status", "Last run"],
-                 data=[(run.uid, run.status, run.last_run.isoformat()) for run in _runs.result])
+        tp.table(headers=["ID", "Status", "Last run", "Last heartbeat"],
+                 data=[(run.run_id,
+                        run.status,
+                        run.last_run.isoformat() if run.last_run else "-",
+                        run.last_heartbeat.isoformat() if run.last_heartbeat else "-") for run in _runs.result])
 
     def resume_runs(self):
         confirm = questionary.confirm("This will all resume runs that are cancelled or in error state. Continue?")
@@ -62,7 +65,7 @@ class ExperimentClient:
 
             if response.success:
                 if response.result:
-                    print("Resumed the following runs: " + ", ".join(run.uid for run in response.result))
+                    print("Resumed the following runs: " + ", ".join(run.run_id for run in response.result))
                 else:
                     print("No runs resumed")
             else:
@@ -123,8 +126,11 @@ class Client:
             print(response.reason)
 
         runs = response.result
-        tp.table(headers=["Experiment", "UID", "Status"],
-                 data=[(run.experiment_name, run.uid, run.status) for run in runs])
+        tp.table(headers=["Experiment", "Run-ID", "Status", "Last heartbeat"],
+                 data=[(run.experiment_name,
+                        run.run_id,
+                        run.status,
+                        run.last_heartbeat.isoformat() if run.last_heartbeat else "-") for run in runs])
 
     def stop_server(self):
         confirm = questionary.confirm("Are you sure?")

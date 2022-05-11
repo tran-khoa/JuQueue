@@ -24,6 +24,7 @@ class Server:
     ACTIONS = ["get_experiments",
                "get_runs",
                "reload",
+               "reload_cluster",
                "resume_runs",
                "heartbeat",
                "quit"]
@@ -68,6 +69,18 @@ class Server:
 
         return Response(success=True,
                         result=resumed_runs)
+
+    def reload_cluster(self, experiment_name: str):
+        if experiment_name == ALL_EXPERIMENTS:
+            return Response(success=False, reason=f"Cannot reload cluster of all experiments at once (yet).")
+        if experiment_name not in self.manager.experiment_names:
+            return Response(success=False, reason=f"Unknown experiment {experiment_name}...")
+
+        try:
+            self.manager.managers[experiment_name].init_clusters(force_reload=True)
+            return Response(success=True)
+        except Exception as e:
+            return Response(success=False, reason=str(e))
 
     def reload(self) -> Response[Dict[str, Dict[str, Set[str]]]]:
         try:
