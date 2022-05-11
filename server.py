@@ -96,6 +96,7 @@ class Server:
 
     def quit(self):
         print("Exiting server...")
+        self.manager.stop()
 
         PIDFILE.unlink(missing_ok=True)
         sys.exit(0)

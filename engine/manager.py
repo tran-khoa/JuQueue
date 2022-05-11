@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import importlib
 import logging
+import threading
 from pathlib import Path
 from threading import Lock
 from typing import Dict, List, Literal, Optional, Union
@@ -25,7 +26,8 @@ class ExperimentManager:
         self._clients: Dict[str, Client] = {}
 
         self.__lock = Lock()
-        self.__heartbeat_listener = asyncio.create_task(self._heartbeat_run())
+        self.__heartbeat_listener = threading.Thread(target=self._heartbeat_run)
+        self.__heartbeat_listener.start()
 
     @property
     def runs(self) -> List[Run]:
@@ -190,8 +192,8 @@ class ExperimentManager:
         fut.add_done_callback(self._on_run_ended)
         return fut
 
-    async def _heartbeat_run(self):
-        async for run_id in Sub(f"{self._experiment.name}_heartbeat"):
+    def _heartbeat_run(self):
+        for run_id in Sub(f"{self._experiment.name}_heartbeat"):
             self.__lock.acquire()
             run = self.run_by_id(run_id)
             if not run:
@@ -203,9 +205,9 @@ class ExperimentManager:
             self.__lock.release()
 
     def stop(self):
-        self.__heartbeat_listener.cancel()
         for fut in self._futures.values():
-            fut.cancel()
+            if fut:
+                fut.cancel()
 
         self.__lock.acquire()
         self.__lock.release()
@@ -248,3 +250,7 @@ class Manager:
         if experiment_name not in self.managers:
             return None
         return self.managers[experiment_name].runs
+
+    def stop(self):
+        for manager in self.managers.values():
+            manager.stop()
