@@ -27,6 +27,9 @@ class Run:
     env: Dict[str, str] = field(default_factory=dict)
 
     #
+    is_abstract: bool = False
+
+    #
     status: Literal['running', 'pending', 'failed', 'cancelled', 'finished'] = field(default='pending', init=False)
 
     #
@@ -45,8 +48,9 @@ class Run:
     parameter_format: Literal['argparse', 'eq'] = 'argparse'
 
     def __post_init__(self):
-        self.path.mkdir(parents=True, exist_ok=True)
-        self.log_path.mkdir(parents=True, exist_ok=True)
+        if not self.is_abstract:
+            self.path.mkdir(parents=True, exist_ok=True)
+            self.log_path.mkdir(parents=True, exist_ok=True)
 
     def fork(self, run_id: str) -> "Run":
         return Run(
@@ -61,6 +65,8 @@ class Run:
 
     @property
     def global_id(self) -> str:
+        if self.is_abstract:
+            return "@abstract_run"
         return f"{self.experiment_name}@{self.run_id}"
 
     @property
