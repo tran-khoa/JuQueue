@@ -1,17 +1,24 @@
+import os
 import shlex
 import subprocess
+import tempfile
 import threading
 from functools import partial
 from pathlib import Path
-from typing import Callable, Dict, Optional, Union
+from typing import Callable, Dict, List, Optional, Union
 
-from dask.distributed import Pub
+from dask.distributed import Pub, Lock, Variable
 
 from config import Config
 from entities.run import Run
+import platform
 
 
 class Executor:
+    def __init__(self, venv: Union[Path, str, None] = None, prepend_script: Optional[List[str]] = None):
+        self.venv = Path(venv) if venv else None
+        self.prepend_script = prepend_script
+
     def environment(self, run: Run) -> Dict[str, str]:
         env = run.env.copy()
 
@@ -28,16 +35,37 @@ class Executor:
     def create_heartbeat_timer(self, run: Run):
         return threading.Timer(Config.HEARTBEAT_INTERVAL, partial(self.__heartbeat, run))
 
+    def create_script(self, run: Run) -> str:
+        # Create run script
+        script = []
+        if self.prepend_script:
+            script.extend(self.prepend_script)
+        if self.venv:
+            script.append(f". {(self.venv / 'bin' / 'activate').as_posix()}")
+        script.append(shlex.join(run.parsed_cmd))
+        return "\n".join(script)
+
     def execute(self, run: Run) -> int:
-        self.create_heartbeat_timer(run).start()
+        self.__heartbeat(run)
+
+        script = self.create_script(run)
 
         stdout = (run.log_path / "stdout.log").open("at")
         stderr = (run.log_path / "stderr.log").open("at")
-        status = subprocess.run(run.cmd,
-                                env=self.environment(run),
-                                cwd=run.path.as_posix(),
-                                stdout=stdout,
-                                stderr=stderr).returncode
+
+        stdout.write("-------------------------\n")
+        stdout.write(script)
+        stdout.write("\n-------------------------\n")
+        stdout.flush()
+
+        with tempfile.NamedTemporaryFile("wt") as run_file:
+            run_file.write(script)
+
+            status = subprocess.run(['/bin/sh', run_file.name],
+                                    env=self.environment(run),
+                                    cwd=run.path.as_posix(),
+                                    stdout=stdout,
+                                    stderr=stderr).returncode
         stdout.close()
         stderr.close()
         return status
@@ -46,14 +74,43 @@ class Executor:
         return partial(self.execute, run)
 
 
+class GPUExecutor:
+    def __init__(self,
+                 gpus_per_node: int,
+                 venv: Union[Path, str, None] = None,
+                 prepend_script: Optional[List[str]] = None):
+        super(GPUExecutor, self).__init__(venv, prepend_script)
+
+        self.gpus_per_node = gpus_per_node
+        self.__lock = Lock(f"gpu_lock_{platform.node()}")
+        self.__gpus = Variable(f"gpu_state_{platform.node()}")
+
+    def next_gpu(self) -> int:
+        self.__lock.acquire()
+
+        for i in range(self.gpus_per_node):
+            if os.environ["GPU"]
+
+    @staticmethod
+    def _is_pid_active(pid) -> bool:
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            return False
+        else:
+            return True
+
 class SingularityExecutor(Executor):
     CONTAINER_ZYGOTE_PATH = "/juqueue/zygote.sh"
 
     def __init__(self, container_path: Union[Path, str],
-                 binds: Optional[Dict[Union[str, Path], Union[str, Path]]] = None):
+                 binds: Optional[Dict[Union[str, Path], Union[str, Path]]] = None,
+                 singularity_params: Optional[List[str]] = None):
+        super(SingularityExecutor, self).__init__()
         self.container_path = Path(container_path)
         self.binds = binds or {}
         self.binds[Config.ROOT_DIR / "scripts" / "zygote.sh"] = SingularityExecutor.CONTAINER_ZYGOTE_PATH
+        self.singularity_params = singularity_params or []
 
     def environment(self, run: Run) -> Dict[str, str]:
         env = super().environment(run)
@@ -68,6 +125,7 @@ class SingularityExecutor(Executor):
         stderr = (run.log_path / "stderr.log").open("at")
 
         cmd = ["singularity", "run"]
+        cmd.extend(self.singularity_params)
         for src, dst in self.binds.items():
             if src == "$RUN_PATH":
                 src = run.path

@@ -3,9 +3,8 @@ from dataclasses import dataclass
 from typing import Dict, List, Literal, Optional
 
 from dask_jobqueue import JobQueueCluster, SLURMCluster
-from dask_jobqueue.local import LocalCluster
 
-from entities.executor import Executor, SingularityExecutor
+from entities.executor import Executor
 from entities.experiment import BaseExperiment
 from entities.run import Run
 
@@ -18,7 +17,7 @@ class Experiment(BaseExperiment):
 
     @property
     def status(self) -> Literal['active', 'inactive']:
-        return "active"
+        return "inactive"
 
     @property
     def clusters(self) -> Dict[str, Optional[JobQueueCluster]]:
@@ -64,10 +63,9 @@ class Experiment(BaseExperiment):
 
         base_run = Run(
             run_id="_base",
-            env={"PYTHONPATH": "/work/biasadapt"},
+            env={"PYTHONPATH": "/p/project/jinm60/users/tran4/biasadapt_git"},
             parameters={
-                "data_path": "/datasets",
-                "work_dir": "/rundir/outputs",
+                "data_path": "/p/project/jinm60/users/tran4/datasets",
                 "wandb_project": "biasadapt",
                 "batch_size": 4096,
                 "log_frequency": 1000,
@@ -79,14 +77,14 @@ class Experiment(BaseExperiment):
             },
             parameter_format="eq",
             cluster="jureca-gpu",
-            cmd=["python3", "/work/biasadapt/scripts/conv_biasfit/main.py", "emnist_simclr", "start_pretrain"],
+            cmd=["python3", "/p/project/jinm60/users/tran4/biasadapt_git/scripts/conv_biasfit/main.py", "emnist_simclr", "start_pretrain"],
             experiment_name=self.name
         )
 
         # sweep grid
         kernel_sizes = [3, 5, 7, 9]
         conv_channels = [64, 128, 256, 512]
-        filters_init_gains = [0.1, 0.3, 0.6, 1, 2]
+        filters_init_gains = [0.3, 0.6, 1, 2]
         transforms = ["transforms.RandomResizedCrop(28,scale=(0.6,1.0),ratio=(1.,1.)),transforms.RandomRotation(45)",
                       "transforms.RandomResizedCrop(28,scale=(0.6,1.0),ratio=(1.,1.)),transforms.RandomErasing(p=0.5,scale=(0.2,0.33),ratio=(0.3,3.3),value=0),transforms.RandomRotation(45)"]
 
@@ -101,18 +99,24 @@ class Experiment(BaseExperiment):
                     "kernel_sizes": f"[{k}]",
                     "conv_channels": f"[{c}]",
                     "filters_init": f"KaimingUniformInitializer(gain={f})",
-                    "transforms": tf
+                    "transforms": tf,
+                    "work_dir": (run.path / "output").as_posix()
                 })
+                run.cmd.extend(["--name", name])
                 runs.append(run)
 
         return runs
 
     @property
     def executor(self) -> Executor:
-        return SingularityExecutor(
-            container_path="/p/project/jinm60/users/tran4/conv_biasfit.sif",
-            binds={
-                "$RUN_PATH": "/rundir",
-                "/p/project/jinm60/users/tran4/datasets": "/datasets",
-                "/p/project/jinm60/users/tran4/biasadapt_git": "/work/biasadapt"
-            })
+        return Executor(
+            venv="/p/project/jinm60/users/tran4/env_biasadapt",
+            prepend_script=[
+                "module load CUDA/11.5",
+                "module load Python/3.9.6",
+                "module load cuDNN/8.3.1.22-CUDA-11.5",
+                "module load PyTorch/1.11-CUDA-11.5",
+                "module load torchvision/0.12.0-CUDA-11.5"
+            ]
+        )
+
