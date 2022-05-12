@@ -49,7 +49,8 @@ class Experiment(BaseExperiment):
                     walltime="24:00:00",
                     extra=[
                         "--lifetime", "1h"
-                    ]
+                    ],
+                    job_extra=['--gres=gpu:4']
                 ),
             "local": None
         }
