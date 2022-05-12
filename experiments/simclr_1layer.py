@@ -40,8 +40,8 @@ class Experiment(BaseExperiment):
                 SLURMCluster(
                     queue="dc-gpu",
                     project="jinm60",
-                    cores=128,
-                    memory="512G",
+                    cores=64,
+                    memory="500G",
                     interface="ib0",
                     log_directory=(self.path / "slurm-logs").as_posix(),
                     processes=4,
