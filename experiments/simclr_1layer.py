@@ -4,7 +4,7 @@ from typing import Dict, List, Literal, Optional
 
 from dask_jobqueue import JobQueueCluster, SLURMCluster
 
-from entities.executor import Executor
+from entities.executor import Executor, GPUExecutor
 from entities.experiment import BaseExperiment
 from entities.run import Run
 
@@ -22,20 +22,6 @@ class Experiment(BaseExperiment):
     @property
     def clusters(self) -> Dict[str, Optional[JobQueueCluster]]:
         return {
-            "jureca-cpu":
-                SLURMCluster(
-                    queue="dc-cpu-bigmem",
-                    project="jinm60",
-                    cores=128,
-                    memory="1024G",
-                    interface="ib0",
-                    log_directory=(self.path / "slurm-logs").as_posix(),
-                    processes=32,
-                    walltime="24:00:00",
-                    extra=[
-                        "--lifetime", "1h"
-                    ]
-                ),
             "jureca-gpu":
                 SLURMCluster(
                     queue="dc-gpu",
@@ -44,7 +30,8 @@ class Experiment(BaseExperiment):
                     memory="500G",
                     interface="ib0",
                     log_directory=(self.path / "slurm-logs").as_posix(),
-                    processes=4,
+                    n_workers=4,
+
                     walltime="24:00:00",
                     extra=[
                         "--lifetime", "1h"
@@ -56,7 +43,7 @@ class Experiment(BaseExperiment):
 
     @property
     def num_jobs(self) -> Dict[str, int]:
-        return {"jureca-gpu": 10, "jureca-cpu": 0, "local": 0}
+        return {"jureca-gpu": 10, "local": 0}
 
     @property
     def runs(self) -> List[Run]:
@@ -110,7 +97,8 @@ class Experiment(BaseExperiment):
 
     @property
     def executor(self) -> Executor:
-        return Executor(
+        return GPUExecutor(
+            gpus_per_node=4,
             venv="/p/project/jinm60/users/tran4/env_biasadapt",
             prepend_script=[
                 "module load CUDA/11.5",

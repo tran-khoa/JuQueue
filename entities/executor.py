@@ -1,4 +1,6 @@
+import logging
 import os
+import random
 import shlex
 import subprocess
 import tempfile
@@ -7,7 +9,7 @@ from functools import partial
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
-from dask.distributed import Pub, Lock, Variable
+from dask.distributed import Pub, Lock, get_client
 
 from config import Config
 from entities.run import Run
@@ -74,7 +76,7 @@ class Executor:
         return partial(self.execute, run)
 
 
-class GPUExecutor:
+class GPUExecutor(Executor):
     def __init__(self,
                  gpus_per_node: int,
                  venv: Union[Path, str, None] = None,
@@ -83,13 +85,36 @@ class GPUExecutor:
 
         self.gpus_per_node = gpus_per_node
         self.__lock = Lock(f"gpu_lock_{platform.node()}")
-        self.__gpus = Variable(f"gpu_state_{platform.node()}")
+
+        self.__lock.acquire()
+
+    def environment(self, run: Run) -> Dict[str, str]:
+        env = super(GPUExecutor, self).environment(run).copy()
+
+        env['CUDA_VISIBLE_DEVICES'] = str(self.next_gpu())
+
+        return env
 
     def next_gpu(self) -> int:
         self.__lock.acquire()
 
-        for i in range(self.gpus_per_node):
-            if os.environ["GPU"]
+        dist = get_client().get_metadata(keys=["gpu_lock", platform.node()], default=[-1] * self.gpus_per_node)
+
+        selected_gpu = -1
+        for gpu, pid in enumerate(dist):
+            if pid < 0 or not self._is_pid_active(pid):
+                selected_gpu = gpu
+                break
+        if selected_gpu < 0:
+            logging.error(f"No free gpu available: {dist}")
+            selected_gpu = random.randrange(self.gpus_per_node)
+            logging.error(f"Assigning random GPU: {selected_gpu}!")
+        dist[selected_gpu] = os.getpid()
+
+        get_client().set_metadata(["gpu_lock", platform.node()], dist)
+        self.__lock.release()
+
+        return selected_gpu
 
     @staticmethod
     def _is_pid_active(pid) -> bool:
@@ -99,6 +124,7 @@ class GPUExecutor:
             return False
         else:
             return True
+
 
 class SingularityExecutor(Executor):
     CONTAINER_ZYGOTE_PATH = "/juqueue/zygote.sh"
