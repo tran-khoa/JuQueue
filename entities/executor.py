@@ -69,7 +69,8 @@ class Executor:
                                         env=env,
                                         cwd=path,
                                         stdout=stdout,
-                                        stderr=stderr).returncode
+                                        stderr=stderr,
+                                        shell=True).returncode
         return status
 
     def create(self, run: Run) -> Callable:
