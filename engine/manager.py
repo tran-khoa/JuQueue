@@ -182,6 +182,7 @@ class ExperimentManager:
             else:
                 logging.info(f"Retrying {run}...")
                 fut.retry()
+            run.last_error = str(fut.traceback())
 
         run.save_to_disk()
         self.__lock.release()
