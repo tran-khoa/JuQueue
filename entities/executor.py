@@ -1,3 +1,4 @@
+import datetime
 import logging
 import os
 import random
@@ -29,13 +30,10 @@ class Executor:
 
         return env
 
-    def __heartbeat(self, run: Run):
-        pub = Pub(f'{run.experiment_name}_heartbeat')
-        pub.put(f"{run.run_id}")
-        self.create_heartbeat_timer(run).start()
-
-    def create_heartbeat_timer(self, run: Run):
-        return threading.Timer(Config.HEARTBEAT_INTERVAL, partial(self.__heartbeat, run))
+    def heartbeat(self, run: Run):
+        get_client().set_metadata([f"heartbeat", run.experiment_name, run.run_id],
+                                  datetime.datetime.now().isoformat())
+        threading.Timer(Config.HEARTBEAT_INTERVAL, partial(self.heartbeat, run)).start()
 
     def create_script(self, run: Run) -> str:
         # Create run script
@@ -48,7 +46,7 @@ class Executor:
         return "\n".join(script)
 
     def execute(self, run: Run) -> int:
-        self.__heartbeat(run)
+        self.heartbeat(run)
 
         script = self.create_script(run)
         env = self.environment(run)

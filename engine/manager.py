@@ -3,12 +3,14 @@ import datetime
 import importlib
 import logging
 import threading
+from functools import partial
 from pathlib import Path
 from threading import Lock
 from typing import Dict, List, Literal, Optional, Union
 
 from dask.distributed import Client, Future, Sub
 
+from config import Config
 from entities.experiment import BaseExperiment
 from entities.run import Run
 
@@ -25,9 +27,21 @@ class ExperimentManager:
         self._loaded_runs: Dict[str, Run] = {}
         self._futures: Dict[str, Future] = {}
         self._clients: Dict[str, Client] = {}
-        self.__heartbeat_listeners: Dict[str, threading.Thread] = {}
+
+        self.poll_heartbeats()
 
         self.__lock = Lock()
+
+    def poll_heartbeats(self):
+        if list(self._clients.values()):
+            client = list(self._clients.values())[0]
+            heartbeats = client.get_metadata([f"heartbeat", self.experiment_name], default=dict())
+            for key, value in heartbeats.items():
+                run = self._loaded_runs.get(key, default=False)
+                if run:
+                    run.last_heartbeat = datetime.datetime.fromisoformat(value)
+                    run.save_to_disk()
+        threading.Timer(Config.HEARTBEAT_INTERVAL / 2, self.poll_heartbeats).start()
 
     @property
     def runs(self) -> List[Run]:
@@ -133,11 +147,6 @@ class ExperimentManager:
                 self._clients[name] = Client(cluster)
             else:
                 self._clients[name] = Client()
-
-            # TODO reactivate somehow
-            #self.__heartbeat_listeners[name] = threading.Thread(target=self._heartbeat_run,
-            #                                                    kwargs={"client": self._clients[name]})
-            #self.__heartbeat_listeners[name].start()
 
     def _on_run_ended(self, fut: Future):
         xp, run_uid = fut.key.split('@')
