@@ -101,7 +101,7 @@ class GPUExecutor(Executor):
 
         gpu_dist_key = f"gpu_dist_{platform.node()}"
 
-        dist = get_client().get_metadata(keys=[gpu_dist_key], default=[-1] * self.gpus_per_node)
+        dist = list(get_client().get_metadata(keys=[gpu_dist_key], default=[-1] * self.gpus_per_node))
 
         selected_gpu = -1
         for gpu, pid in enumerate(dist):
@@ -148,8 +148,6 @@ class SingularityExecutor(Executor):
         return env
 
     def execute(self, run: Run) -> int:
-        self.create_heartbeat_timer(run).start()
-
         stdout = (run.log_path / "stdout.log").open("at")
         stderr = (run.log_path / "stderr.log").open("at")
 
