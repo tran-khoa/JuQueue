@@ -17,7 +17,7 @@ class Experiment(BaseExperiment):
 
     @property
     def status(self) -> Literal['active', 'inactive']:
-        return "inactive"
+        return "active"
 
     @property
     def clusters(self) -> Dict[str, Optional[JobQueueCluster]]:
