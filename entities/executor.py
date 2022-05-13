@@ -52,27 +52,24 @@ class Executor:
         env = self.environment(run)
         path = run.path.as_posix()
 
-        stdout = (run.log_path / "stdout.log").open("at")
-        stderr = (run.log_path / "stderr.log").open("at")
+        with (run.log_path / "stdout.log").open("at") as stdout, (run.log_path / "stderr.log").open("at") as stderr:
+            stdout.write("-------------------------\n")
+            stdout.write(f"cd {path}\n")
+            for key, value in env.items():
+                stdout.write(f"export {key}={value}\n")
+            stdout.write(script)
+            stdout.write("\n-------------------------\n")
+            stdout.flush()
 
-        stdout.write("-------------------------\n")
-        stdout.write(f"cd {path}")
-        for key, value in env.items():
-            stdout.write(f"export {key}={value}\n")
-        stdout.write(script)
-        stdout.write("\n-------------------------\n")
-        stdout.flush()
+            with tempfile.NamedTemporaryFile("wt") as run_file:
+                run_file.write(script)
+                run_file.flush()
 
-        with tempfile.NamedTemporaryFile("wt") as run_file:
-            run_file.write(script)
-
-            status = subprocess.run(['/bin/sh', run_file.name],
-                                    env=env,
-                                    cwd=path,
-                                    stdout=stdout,
-                                    stderr=stderr).returncode
-        stdout.close()
-        stderr.close()
+                status = subprocess.run(['/bin/sh', run_file.name],
+                                        env=env,
+                                        cwd=path,
+                                        stdout=stdout,
+                                        stderr=stderr).returncode
         return status
 
     def create(self, run: Run) -> Callable:
