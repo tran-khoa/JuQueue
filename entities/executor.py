@@ -86,8 +86,6 @@ class GPUExecutor(Executor):
         self.gpus_per_node = gpus_per_node
         self.__lock = Lock(f"gpu_lock_{platform.node()}")
 
-        self.__lock.acquire()
-
     def environment(self, run: Run) -> Dict[str, str]:
         env = super(GPUExecutor, self).environment(run).copy()
 
