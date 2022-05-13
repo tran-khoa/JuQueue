@@ -37,7 +37,7 @@ class Executor:
 
     def create_script(self, run: Run) -> str:
         # Create run script
-        script = []
+        script = ["#!/bin/bash"]
         if self.prepend_script:
             script.extend(self.prepend_script)
         if self.venv:
@@ -65,7 +65,7 @@ class Executor:
                 run_file.write(script)
                 run_file.flush()
 
-                status = subprocess.run(['/bin/sh', run_file.name],
+                status = subprocess.run(['/usr/bin/bash', run_file.name],
                                         env=env,
                                         cwd=path,
                                         stdout=stdout,
