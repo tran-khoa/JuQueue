@@ -29,6 +29,7 @@ class Experiment(BaseExperiment):
                     cores=64,
                     memory="500G",
                     interface="ib2",
+                    scheduler_options={'interface': 'ib0'},
                     log_directory=(self.path / "slurm-logs").as_posix(),
                     n_workers=4,
 
