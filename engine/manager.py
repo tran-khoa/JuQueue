@@ -176,7 +176,7 @@ class ExperimentManager:
             future = self._submit_run(run)
             run.last_run = datetime.datetime.now()
             run.save_to_disk()
-            self._futures = future
+            self._futures[run.run_id] = future
 
         self._loaded_runs[run.run_id] = run
 
