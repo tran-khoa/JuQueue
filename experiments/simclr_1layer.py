@@ -28,7 +28,7 @@ class Experiment(BaseExperiment):
                     project="jinm60",
                     cores=64,
                     memory="500G",
-                    interface="ib0",
+                    interface="ib2",
                     log_directory=(self.path / "slurm-logs").as_posix(),
                     n_workers=4,
 
