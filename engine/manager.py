@@ -276,4 +276,5 @@ class Manager:
 
     def stop(self):
         for manager in self.managers.values():
+            logging.info(f"Stopping manager {manager.experiment_name}")
             manager.stop()
