@@ -51,11 +51,16 @@ class Executor:
         self.__heartbeat(run)
 
         script = self.create_script(run)
+        env = self.environment(run)
+        path = run.path.as_posix()
 
         stdout = (run.log_path / "stdout.log").open("at")
         stderr = (run.log_path / "stderr.log").open("at")
 
         stdout.write("-------------------------\n")
+        stdout.write(f"cd {path}")
+        for key, value in env.items():
+            stdout.write(f"export {key}={value}\n")
         stdout.write(script)
         stdout.write("\n-------------------------\n")
         stdout.flush()
@@ -64,8 +69,8 @@ class Executor:
             run_file.write(script)
 
             status = subprocess.run(['/bin/sh', run_file.name],
-                                    env=self.environment(run),
-                                    cwd=run.path.as_posix(),
+                                    env=env,
+                                    cwd=path,
                                     stdout=stdout,
                                     stderr=stderr).returncode
         stdout.close()
