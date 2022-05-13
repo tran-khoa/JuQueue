@@ -59,9 +59,16 @@ class ExperimentClient:
                         run.last_heartbeat.isoformat() if run.last_heartbeat else "-") for run in _runs.result])
 
     def resume_runs(self):
-        confirm = questionary.confirm("This will all resume runs that are cancelled or in error state. Continue?")
-        if confirm:
-            response = self.socket.execute("resume_runs", experiment_name=self.experiment_name, run_id=ALL_RUNS)
+        states = questionary.checkbox('Resume runs with the following states:',
+                                      choices=[Choice('failed', checked=True),
+                                               Choice('cancelled', checked=True),
+                                               Choice('finished', checked=False)]).ask()
+
+        if not states:
+            print("No states selected.")
+        else:
+            response = self.socket.execute("resume_runs", experiment_name=self.experiment_name, run_id=ALL_RUNS,
+                                           states=states)
 
             if response.success:
                 if response.result:
@@ -185,4 +192,3 @@ class Client:
 if __name__ == '__main__':
     client = Client()
     client.loop()
-

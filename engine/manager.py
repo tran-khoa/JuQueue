@@ -120,11 +120,16 @@ class ExperimentManager:
 
         return {"new": ids_new, "updated": ids_updated, "deleted": ids_deleted}
 
-    def resume_runs(self, runs: List[Run]) -> List[Run]:
+    def resume_runs(self, runs: List[Run], states: Optional[List[Literal["failed", "cancelled", "finished"]]] = None) \
+            -> List[Run]:
         self.__lock.acquire()
         resumed_runs = []
+
+        if states is None:
+            states = ["failed", "cancelled"]
+
         for run in runs:
-            if run.status in ("failed", "cancelled"):
+            if run.status in states:
                 resumed_runs.append(run)
                 run.status = "pending"
                 run.last_run = datetime.datetime.now()

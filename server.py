@@ -4,7 +4,7 @@ import pickle
 import sys
 import traceback
 import warnings
-from typing import Dict, List, Set
+from typing import Dict, List, Literal, Optional, Set
 
 import zmq
 
@@ -54,7 +54,9 @@ class Server:
                 result=runs
             )
 
-    def resume_runs(self, experiment_name: str, run_id: str) -> Response[List[Run]]:
+    def resume_runs(self, experiment_name: str,
+                    run_id: str,
+                    states: Optional[List[Literal["failed", "cancelled", "finished"]]]) -> Response[List[Run]]:
         if experiment_name == ALL_EXPERIMENTS:
             return Response(success=False, reason=f"Cannot reset runs of all experiments at once (yet).")
         if experiment_name not in self.manager.experiment_names:
@@ -65,7 +67,7 @@ class Server:
         else:
             runs = self.manager.managers[experiment_name].run_by_id(run_id)
 
-        resumed_runs = self.manager.managers[experiment_name].resume_runs(runs)
+        resumed_runs = self.manager.managers[experiment_name].resume_runs(runs, states=states)
 
         return Response(success=True,
                         result=resumed_runs)
