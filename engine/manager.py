@@ -28,6 +28,7 @@ class ExperimentManager:
         self._futures: Dict[str, Future] = {}
         self._clients: Dict[str, Client] = {}
 
+        self.__heartbeat_setup = False
         self.poll_heartbeats()
 
         self.__lock = Lock()
@@ -35,12 +36,17 @@ class ExperimentManager:
     def poll_heartbeats(self):
         if list(self._clients.values()):
             client = list(self._clients.values())[0]
-            heartbeats = client.get_metadata([f"heartbeat", self.experiment_name], default=dict())
-            for key, value in heartbeats.items():
-                run = self._loaded_runs.get(key, default=False)
-                if run:
-                    run.last_heartbeat = datetime.datetime.fromisoformat(value)
-                    run.save_to_disk()
+
+            try:
+                heartbeats = client.get_metadata(["heartbeat", self.experiment_name], default=dict())
+            except KeyError:
+                pass
+            else:
+                for key, value in heartbeats.items():
+                    run = self._loaded_runs.get(key, default=False)
+                    if run:
+                        run.last_heartbeat = datetime.datetime.fromisoformat(value)
+                        run.save_to_disk()
         threading.Timer(Config.HEARTBEAT_INTERVAL / 2, self.poll_heartbeats).start()
 
     @property
