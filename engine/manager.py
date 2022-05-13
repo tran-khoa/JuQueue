@@ -18,8 +18,9 @@ ALL_RUNS = "@ALL_RUNS"
 
 class ExperimentManager:
 
-    def __init__(self):
+    def __init__(self, experiment_name: str):
         # noinspection PyTypeChecker
+        self.experiment_name = experiment_name
         self._experiment: BaseExperiment = None
         self._loaded_runs: Dict[str, Run] = {}
         self._futures: Dict[str, Future] = {}
@@ -193,11 +194,11 @@ class ExperimentManager:
         return fut
 
     def _heartbeat_run(self):
-        for run_id in Sub(f"{self._experiment.name}_heartbeat"):
+        for run_id in Sub(f"{self.experiment_name}_heartbeat"):
             self.__lock.acquire()
             run = self.run_by_id(run_id)
             if not run:
-                logging.warning(f"[{self._experiment.name}] Discarding heartbeat of unknown run {run_id}.")
+                logging.warning(f"[{self.experiment_name}] Discarding heartbeat of unknown run {run_id}.")
                 continue
             run.status = "running"
             run.last_heartbeat = datetime.datetime.now()
@@ -233,7 +234,7 @@ class Manager:
             xp: BaseExperiment = module.Experiment()
             if xp.status == "active":
                 if xp.name not in self.managers:
-                    self.managers[xp.name] = ExperimentManager()
+                    self.managers[xp.name] = ExperimentManager(xp.name)
 
                 result = self.managers[xp.name].load_experiment(xp)
                 results[xp.name] = result
