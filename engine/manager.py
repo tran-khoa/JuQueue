@@ -134,9 +134,10 @@ class ExperimentManager:
             else:
                 self._clients[name] = Client()
 
-            self.__heartbeat_listeners[name] = threading.Thread(target=self._heartbeat_run,
-                                                                kwargs={"client": self._clients[name]})
-            self.__heartbeat_listeners[name].start()
+            # TODO reactivate somehow
+            #self.__heartbeat_listeners[name] = threading.Thread(target=self._heartbeat_run,
+            #                                                    kwargs={"client": self._clients[name]})
+            #self.__heartbeat_listeners[name].start()
 
     def _on_run_ended(self, fut: Future):
         xp, run_uid = fut.key.split('@')
