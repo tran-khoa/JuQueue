@@ -25,10 +25,9 @@ class ExperimentManager:
         self._loaded_runs: Dict[str, Run] = {}
         self._futures: Dict[str, Future] = {}
         self._clients: Dict[str, Client] = {}
+        self.__heartbeat_listeners: Dict[str, threading.Thread] = {}
 
         self.__lock = Lock()
-        self.__heartbeat_listener = threading.Thread(target=self._heartbeat_run)
-        self.__heartbeat_listener.start()
 
     @property
     def runs(self) -> List[Run]:
@@ -135,6 +134,10 @@ class ExperimentManager:
             else:
                 self._clients[name] = Client()
 
+            self.__heartbeat_listeners[name] = threading.Thread(target=self._heartbeat_run,
+                                                                kwargs={"client": self._clients[name]})
+            self.__heartbeat_listeners[name].start()
+
     def _on_run_ended(self, fut: Future):
         xp, run_uid = fut.key.split('@')
         if xp != self._experiment.name:
@@ -193,8 +196,8 @@ class ExperimentManager:
         fut.add_done_callback(self._on_run_ended)
         return fut
 
-    def _heartbeat_run(self):
-        for run_id in Sub(f"{self.experiment_name}_heartbeat"):
+    def _heartbeat_run(self, client: Client):
+        for run_id in Sub(f"{self.experiment_name}_heartbeat", client=client):
             self.__lock.acquire()
             run = self.run_by_id(run_id)
             if not run:
