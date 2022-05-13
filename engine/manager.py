@@ -236,14 +236,18 @@ class ExperimentManager:
             self.__lock.release()
 
     def stop(self):
-        for fut in self._futures.values():
-            if fut:
-                fut.cancel()
-
         print(f"Clearing lock of {self.experiment_name}...")
         self.__lock.acquire(timeout=60)
         self.__lock.release()
         print(f"Lock of {self.experiment_name} cleared.")
+
+        for fut in self._futures.values():
+            if fut:
+                fut.cancel()
+
+        for cl in self._clients.values():
+            if cl:
+                cl.close()
 
 
 class Manager:
