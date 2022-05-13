@@ -96,7 +96,9 @@ class GPUExecutor(Executor):
     def next_gpu(self) -> int:
         self.__lock.acquire()
 
-        dist = get_client().get_metadata(keys=["gpu_lock", platform.node()], default=[-1] * self.gpus_per_node)
+        gpu_dist_key = f"gpu_dist_{platform.node()}"
+
+        dist = get_client().get_metadata(keys=[gpu_dist_key], default=[-1] * self.gpus_per_node)
 
         selected_gpu = -1
         for gpu, pid in enumerate(dist):
@@ -109,7 +111,7 @@ class GPUExecutor(Executor):
             logging.error(f"Assigning random GPU: {selected_gpu}!")
         dist[selected_gpu] = os.getpid()
 
-        get_client().set_metadata(["gpu_lock", platform.node()], dist)
+        get_client().set_metadata([gpu_dist_key], dist)
         self.__lock.release()
 
         return selected_gpu

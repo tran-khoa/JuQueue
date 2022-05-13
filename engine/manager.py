@@ -214,8 +214,10 @@ class ExperimentManager:
             if fut:
                 fut.cancel()
 
-        self.__lock.acquire()
+        logging.info(f"Clearing lock of {self.experiment_name}...")
+        self.__lock.acquire(timeout=120)
         self.__lock.release()
+        logging.info(f"Lock of {self.experiment_name} cleared.")
 
 
 class Manager:
