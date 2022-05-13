@@ -64,54 +64,59 @@ class ExperimentManager:
 
     def load_experiment(self, experiment: BaseExperiment):
         self.__lock.acquire()
-        self._experiment = experiment
+        try:
+            self._experiment = experiment
 
-        if self._experiment.status == "finished":
-            logging.info(f"Experiment {self._experiment.name} already finished.")
-            return
+            if self._experiment.status == "finished":
+                logging.info(f"Experiment {self._experiment.name} already finished.")
+                return
 
-        for name, cluster in experiment.clusters.items():
-            if cluster is not None:
-                cluster.adapt(maximum_jobs=experiment.num_jobs[name])
+            for name, cluster in experiment.clusters.items():
+                if cluster is not None:
+                    cluster.adapt(maximum_jobs=experiment.num_jobs[name])
 
-        self.init_clusters(experiment)
+            self.init_clusters(experiment)
 
-        # TODO allow force-reinit of cluster, stopping all running experiments
-        # TODO runs that have not been scheduled yet should be updateable, lock should stop queueing new runs
-        # TODO allow run control, i.e. start/stopping all runs
+            # TODO allow force-reinit of cluster, stopping all running experiments
+            # TODO runs that have not been scheduled yet should be updateable, lock should stop queueing new runs
+            # TODO allow run control, i.e. start/stopping all runs
 
-        # Detect and load runs
-        ids_new = set()
-        ids_updated = set()
-        ids_deleted = set(self._loaded_runs.keys())
+            # Detect and load runs
+            ids_new = set()
+            ids_updated = set()
+            ids_deleted = set(self._loaded_runs.keys())
 
-        for run in self._experiment.runs:
-            run.load_from_disk()
+            for run in self._experiment.runs:
+                run.load_from_disk()
 
-            if run.run_id.startswith("@"):
-                logging.error(f"Run IDs cannot start with @, found run {run.run_id}")
-                raise ValueError(f"Run IDs cannot start with @, found run {run.run_id}")
+                if run.run_id.startswith("@"):
+                    logging.error(f"Run IDs cannot start with @, found run {run.run_id}")
+                    raise ValueError(f"Run IDs cannot start with @, found run {run.run_id}")
 
-            if run.run_id in self._loaded_runs:
-                if run == self.run_by_id(run.run_id):
-                    logging.info(f"Existing run {run} is unchanged.")
+                if run.run_id in self._loaded_runs:
+                    if run == self.run_by_id(run.run_id):
+                        logging.info(f"Existing run {run} is unchanged.")
+                    else:
+                        logging.info(f"Updating existing run {run}...")
+                        logging.warning(f"{run} has changed, this has not been implemented yet :/")
+                        ids_updated.add(run)
+                        self._update_run(run)
+
+                    ids_deleted.remove(run.run_id)
                 else:
-                    logging.info(f"Updating existing run {run}...")
-                    logging.warning(f"{run} has changed, this has not been implemented yet :/")
-                    ids_updated.add(run)
-                    self._update_run(run)
+                    logging.info(f"Found new run {run}...")
+                    ids_new.add(run)
+                    self._add_run(run)
 
-                ids_deleted.remove(run.run_id)
-            else:
-                logging.info(f"Found new run {run}...")
-                ids_new.add(run)
-                self._add_run(run)
-
-        for run_id in ids_deleted:
-            run = self._loaded_runs[run_id]
-            logging.info(f"Run {run} removed from experiment.")
-            self._delete_run(run)
-        self.__lock.release()
+            for run_id in ids_deleted:
+                run = self._loaded_runs[run_id]
+                logging.info(f"Run {run} removed from experiment.")
+                self._delete_run(run)
+        except Exception as ex:
+            logging.error(ex)
+            print(ex)
+        finally:
+            self.__lock.release()
 
         return {"new": ids_new, "updated": ids_updated, "deleted": ids_deleted}
 
@@ -230,10 +235,10 @@ class ExperimentManager:
             if fut:
                 fut.cancel()
 
-        logging.info(f"Clearing lock of {self.experiment_name}...")
-        self.__lock.acquire(timeout=120)
+        print(f"Clearing lock of {self.experiment_name}...")
+        self.__lock.acquire(timeout=60)
         self.__lock.release()
-        logging.info(f"Lock of {self.experiment_name} cleared.")
+        print(f"Lock of {self.experiment_name} cleared.")
 
 
 class Manager:
@@ -276,5 +281,5 @@ class Manager:
 
     def stop(self):
         for manager in self.managers.values():
-            logging.info(f"Stopping manager {manager.experiment_name}")
+            print(f"Stopping manager {manager.experiment_name}")
             manager.stop()
