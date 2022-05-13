@@ -43,7 +43,7 @@ class ExperimentManager:
                 pass
             else:
                 for key, value in heartbeats.items():
-                    run = self._loaded_runs.get(key, default=False)
+                    run = self._loaded_runs.get(key, False)
                     if run:
                         run.last_heartbeat = datetime.datetime.fromisoformat(value)
                         run.save_to_disk()
