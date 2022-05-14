@@ -10,7 +10,7 @@ from functools import partial
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
-from dask.distributed import Pub, Lock, get_client
+from dask.distributed import Lock, get_client
 from distributed import get_worker
 
 from config import Config
@@ -112,27 +112,25 @@ class GPUExecutor(Executor):
     def next_gpu(self) -> int:
         gpu_dist_key = f"gpu_dist_{platform.node()}"
 
-        self.__lock.acquire()
+        with self.__lock:
+            dist = list(get_client().get_metadata(keys=[gpu_dist_key], default=[-1] * self.gpus_per_node))
 
-        dist = list(get_client().get_metadata(keys=[gpu_dist_key], default=[-1] * self.gpus_per_node))
+            worker_pid = os.getpid()
+            if os.getpid() in dist:
+                selected_gpu = dist.index(worker_pid)
+            else:
+                selected_gpu = -1
+                for gpu, pid in enumerate(dist):
+                    if pid < 0 or not self._is_pid_active(pid):
+                        selected_gpu = gpu
+                        break
+                if selected_gpu < 0:
+                    logging.error(f"No free gpu available on {platform.node()}: {dist}")
+                    selected_gpu = random.randrange(self.gpus_per_node)
+                    logging.error(f"Assigning random GPU to worker {worker_pid}: {selected_gpu}!")
+                dist[selected_gpu] = worker_pid
 
-        worker_pid = os.getpid()
-        if os.getpid() in dist:
-            selected_gpu = dist.index(worker_pid)
-        else:
-            selected_gpu = -1
-            for gpu, pid in enumerate(dist):
-                if pid < 0 or not self._is_pid_active(pid):
-                    selected_gpu = gpu
-                    break
-            if selected_gpu < 0:
-                logging.error(f"No free gpu available on {platform.node()}: {dist}")
-                selected_gpu = random.randrange(self.gpus_per_node)
-                logging.error(f"Assigning random GPU to worker {worker_pid}: {selected_gpu}!")
-            dist[selected_gpu] = worker_pid
-
-        get_client().set_metadata([gpu_dist_key], dist)
-        self.__lock.release()
+            get_client().set_metadata([gpu_dist_key], dist)
 
         return selected_gpu
 
