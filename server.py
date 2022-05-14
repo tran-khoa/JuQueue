@@ -179,7 +179,7 @@ if __name__ == '__main__':
 
     logging.basicConfig(filename=Config.WORK_DIR / "server.log",
                         filemode="a",
-                        level=logging.INFO)
+                        level=logging.DEBUG)
     server = Server()
     server_thread = threading.Thread(target=server.loop)
     server_thread.start()
