@@ -38,7 +38,10 @@ class ExperimentManager:
             client = list(self._clients.values())[0]
 
             try:
-                heartbeats = client.get_metadata(["heartbeat", self.experiment_name], default=dict())
+                if client.get_metadata(["heartbeat"], default=None) is not None:
+                    heartbeats = client.get_metadata(["heartbeat", self.experiment_name], default=dict())
+                else:
+                    heartbeats = {}
             except KeyError:
                 pass
             else:
@@ -223,7 +226,8 @@ class ExperimentManager:
         client = self._clients[run.cluster]
         fut = client.submit(self._experiment.executor.create(run),
                             key=f"{self._experiment.name}@{run.run_id}",
-                            resources={'slots': 1})
+                            resources={'slots': 1},
+                            pure=False)
         fut.add_done_callback(self._on_run_ended)
         return fut
 

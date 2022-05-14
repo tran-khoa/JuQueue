@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
 from dask.distributed import Lock, get_client
-from distributed import get_worker
 
 from config import Config
 from entities.run import Run
