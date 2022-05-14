@@ -96,7 +96,7 @@ class Experiment(BaseExperiment):
                       "transforms.RandomResizedCrop(28,scale=(0.6,1.0),ratio=(1.,1.)),transforms.RandomErasing(p=0.5,scale=(0.2,0.33),ratio=(0.3,3.3),value=0.0),transforms.RandomRotation(45)"]
 
         for l, k, c, f in itertools.product(lr, kernel_sizes, conv_channels, filters_init_gains):
-            name = f"lr_{l}_krn{k}_chn{c}_gain{f}"
+            name = f"lr{l}_krn{k}_chn{c}_gain{f}"
             for idx, tf in enumerate(transforms):
                 if idx == 1:
                     name += "_erasing"
