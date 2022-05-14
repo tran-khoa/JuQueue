@@ -51,8 +51,7 @@ class Experiment(BaseExperiment):
                                "module load matplotlib/3.4.3",
                                "module load typing-extensions/3.10.0.0",
                                'echo "$(date) | Starting worker on $(hostname)" >> /p/scratch/jinm60/tran4/dask/workers.log']
-                ),
-            "local": None
+                )
         }
 
     @property
