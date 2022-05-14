@@ -1,3 +1,4 @@
+import hashlib
 import itertools
 from dataclasses import dataclass
 from functools import cached_property
@@ -65,7 +66,9 @@ class Experiment(BaseExperiment):
         base_run = Run(
             run_id="_base",
             python_search_path=["/p/project/jinm60/users/tran4/biasadapt_git"],
-            env={"WANDB_MODE": "offline"},
+            env={"WANDB_MODE": "offline",
+                 "WANDB_DIR": "/p/project/jinm60/users/tran4/out_biasadapt/wandb",
+                 "WANDB_RESUME": "auto"},
             parameters={
                 "data_path": "/p/project/jinm60/users/tran4/datasets",
                 "wandb_project": "biasadapt",
@@ -75,7 +78,8 @@ class Experiment(BaseExperiment):
                 "max_epochs": 50,
                 "data_workers": 1,
                 "cleanup_checkpoints": True,
-                "gpu": True
+                "gpu": True,
+                "amp": True
             },
             parameter_format="eq",
             cluster="jureca-gpu",
@@ -107,6 +111,11 @@ class Experiment(BaseExperiment):
                 })
                 run.cmd.extend(["--name", name])
                 runs.append(run)
+
+                wandb_id = name
+                if len(wandb_id) > 64:
+                    wandb_id = hashlib.sha224(wandb_id.encode("utf8")).hexdigest()[:64]
+                run.env["WANDB_RUN_ID"] = wandb_id
 
         return runs
 
