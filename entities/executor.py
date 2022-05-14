@@ -68,7 +68,7 @@ class Executor:
             with tempfile.NamedTemporaryFile("wt", delete=False) as run_file:
                 run_file.write(script)
 
-            os.chmod(run_file.name, stat.ST_MODE | stat.S_IEXEC)
+            os.chmod(run_file.name, 0o700)
 
             status = subprocess.run([run_file.name],
                                     env=env,
