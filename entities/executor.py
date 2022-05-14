@@ -53,10 +53,10 @@ class Executor:
         path = run.path.as_posix()
 
         with (run.log_path / "stdout.log").open("at") as stdout, (run.log_path / "stderr.log").open("at") as stderr:
-            stderr.write(f"---------- {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ----------")
+            stderr.write(f"---------- {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ----------\n")
             stderr.flush()
 
-            stdout.write(f"---------- {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ----------")
+            stdout.write(f"---------- {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ----------\n")
             stdout.write("-------------------------\n")
             stdout.write(f"cd {path}\n")
             for key, value in env.items():
@@ -69,12 +69,13 @@ class Executor:
                 run_file.write(script)
                 run_file.flush()
 
-                status = subprocess.run(['/usr/bin/bash', run_file.name],
+                status = subprocess.run([run_file.name],
                                         env=env,
                                         cwd=path,
                                         stdout=stdout,
                                         stderr=stderr,
-                                        shell=True).returncode
+                                        shell=True,
+                                        executable="/bin/bash").returncode
         return status
 
     def create(self, run: Run) -> Callable:
