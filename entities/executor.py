@@ -53,6 +53,10 @@ class Executor:
         path = run.path.as_posix()
 
         with (run.log_path / "stdout.log").open("at") as stdout, (run.log_path / "stderr.log").open("at") as stderr:
+            stderr.write(f"---------- {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ----------")
+            stderr.flush()
+
+            stdout.write(f"---------- {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ----------")
             stdout.write("-------------------------\n")
             stdout.write(f"cd {path}\n")
             for key, value in env.items():
