@@ -33,6 +33,7 @@ class ExperimentManager:
         self.poll_heartbeats()
 
         self.__lock = Lock()
+        self.__timer = None
 
     def poll_heartbeats(self):
         if list(self._clients.values()):
@@ -51,7 +52,8 @@ class ExperimentManager:
                     if run:
                         run.last_heartbeat = datetime.datetime.fromisoformat(value)
                         run.save_to_disk()
-        threading.Timer(Config.HEARTBEAT_INTERVAL / 2, self.poll_heartbeats).start()
+        self.__timer = threading.Timer(Config.HEARTBEAT_INTERVAL / 2, self.poll_heartbeats)
+        self.__timer.start()
 
     @property
     def runs(self) -> List[Run]:
@@ -245,6 +247,9 @@ class ExperimentManager:
         self.__lock.acquire(timeout=60)
         self.__lock.release()
         print(f"Lock of {self.experiment_name} cleared.")
+
+        if self.__timer:
+            self.__timer.cancel()
 
         for fut in self._futures.values():
             if fut:

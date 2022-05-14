@@ -14,11 +14,11 @@ from entities.run import Run
 class Experiment(BaseExperiment):
     @property
     def name(self) -> str:
-        return "simclr_1layer"
+        return "simclr_1layer_hyp1"
 
     @property
     def status(self) -> Literal['active', 'inactive']:
-        return "inactive"
+        return "active"
 
     @cached_property
     def clusters(self) -> Dict[str, Optional[JobQueueCluster]]:
@@ -50,14 +50,13 @@ class Experiment(BaseExperiment):
                                "module load Pillow-SIMD/9.0.1",
                                "module load SciPy-bundle/2021.10",
                                "module load matplotlib/3.4.3",
-                               "module load typing-extensions/3.10.0.0",
-                               'echo "$(date) | Starting worker on $(hostname)" >> /p/scratch/jinm60/tran4/dask/workers.log']
+                               "module load typing-extensions/3.10.0.0"]
                 )
         }
 
     @property
     def num_jobs(self) -> Dict[str, int]:
-        return {"jureca-gpu": 10, "local": 0}
+        return {"jureca-gpu": 2, "local": 0}
 
     @property
     def runs(self) -> List[Run]:
@@ -87,8 +86,8 @@ class Experiment(BaseExperiment):
 
         # sweep grid
         kernel_sizes = [3, 5, 7, 9]
-        conv_channels = [64, 128, 256, 512]
-        filters_init_gains = [0.3, 0.6, 1, 2]
+        conv_channels = [256]
+        filters_init_gains = [1]
         transforms = ["transforms.RandomResizedCrop(28,scale=(0.6,1.0),ratio=(1.,1.)),transforms.RandomRotation(45)",
                       "transforms.RandomResizedCrop(28,scale=(0.6,1.0),ratio=(1.,1.)),transforms.RandomErasing(p=0.5,scale=(0.2,0.33),ratio=(0.3,3.3),value=0.0),transforms.RandomRotation(45)"]
 
