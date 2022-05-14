@@ -27,7 +27,7 @@ class Experiment(BaseExperiment):
                     name=self.name,
                     queue="dc-gpu",
                     project="jinm60",
-                    cores=128,
+                    cores=64,
                     memory="500G",
                     interface="ib2",
                     scheduler_options={'interface': 'ib0'},
