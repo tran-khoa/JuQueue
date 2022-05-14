@@ -22,8 +22,6 @@ class Executor:
     def __init__(self, venv: Union[Path, str, None] = None, prepend_script: Optional[List[str]] = None):
         self.venv = Path(venv) if venv else None
         self.prepend_script = prepend_script
-        self.logger = logging.getLogger(get_worker().name)
-        self.logger.setLevel(logging.INFO)
 
     def environment(self, run: Run) -> Dict[str, str]:
         env = os.environ.copy()
