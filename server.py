@@ -1,7 +1,9 @@
+import argparse
 import logging
 import os
 import pickle
 import sys
+import threading
 import traceback
 import warnings
 from typing import Dict, List, Literal, Optional, Set
@@ -154,6 +156,10 @@ class Server:
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--debug")
+    args = parser.parse_args()
+
     Config.WORK_DIR.mkdir(parents=True, exist_ok=True)
 
     if PIDFILE.exists():
@@ -174,4 +180,11 @@ if __name__ == '__main__':
                         filemode="a",
                         level=logging.INFO)
     server = Server()
-    server.loop()
+    server_thread = threading.Thread(target=server.loop)
+    server_thread.start()
+
+    if args.debug:
+        from IPython import embed
+        embed()
+    else:
+        server_thread.join()

@@ -3,7 +3,6 @@ import logging
 import os
 import random
 import shlex
-import stat
 import subprocess
 import tempfile
 import threading
@@ -12,6 +11,7 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
 from dask.distributed import Pub, Lock, get_client
+from distributed import get_worker
 
 from config import Config
 from entities.run import Run
@@ -22,6 +22,8 @@ class Executor:
     def __init__(self, venv: Union[Path, str, None] = None, prepend_script: Optional[List[str]] = None):
         self.venv = Path(venv) if venv else None
         self.prepend_script = prepend_script
+        self.logger = logging.getLogger(get_worker().name)
+        self.logger.setLevel(logging.INFO)
 
     def environment(self, run: Run) -> Dict[str, str]:
         env = os.environ.copy()
