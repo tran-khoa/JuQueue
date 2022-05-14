@@ -27,6 +27,9 @@ class Executor:
         env = os.environ.copy()
         env.update(run.env)
 
+        if run.python_search_path:
+            env['PYTHONPATH'] = env.get("PYTHONPATH", "") + ":" + ":".join(run.python_search_path)
+
         env['RUN_ID'] = run.run_id
         env['EXPERIMENT_ID'] = run.experiment_name
 

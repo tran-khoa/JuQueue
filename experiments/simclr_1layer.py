@@ -63,8 +63,8 @@ class Experiment(BaseExperiment):
 
         base_run = Run(
             run_id="_base",
-            env={"PYTHONPATH": "/p/project/jinm60/users/tran4/biasadapt_git",
-                 "WANDB_MODE": "offline"},
+            python_search_path=["/p/project/jinm60/users/tran4/biasadapt_git"],
+            env={"WANDB_MODE": "offline"},
             parameters={
                 "data_path": "/p/project/jinm60/users/tran4/datasets",
                 "wandb_project": "biasadapt",

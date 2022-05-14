@@ -42,6 +42,9 @@ class Run:
     last_heartbeat: Optional[datetime] = field(default=None, init=False)
 
     #
+    python_search_path: List[str] = field(default_factory=list)
+
+    #
     parameters: Dict[str, str] = field(default_factory=dict)
 
     #
@@ -60,7 +63,8 @@ class Run:
             cmd=list(self.cmd),
             env=dict(self.env),
             parameters=dict(self.parameters),
-            parameter_format=self.parameter_format
+            parameter_format=self.parameter_format,
+            python_search_path=self.python_search_path
         )
 
     @property
@@ -123,10 +127,14 @@ class Run:
         if not isinstance(other, Run):
             return False
         return (self.run_id == other.run_id) \
+               and (self.experiment_name == other.experiment_name) \
+               and (self.cluster == other.cluster) \
                and (self.cmd == other.cmd) \
                and (self.env == other.env) \
+               and (self.is_abstract == other.is_abstract) \
                and (self.parameters == other.parameters) \
-               and (self.parameter_format == other.parameter_format)
+               and (self.parameter_format == other.parameter_format) \
+               and (self.python_search_path == other.python_search_path)
 
     def __hash__(self) -> int:
         return hash(self.experiment_name + self.run_id)
