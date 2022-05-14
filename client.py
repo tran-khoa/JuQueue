@@ -96,7 +96,7 @@ class ExperimentClient:
             sel_runs = questionary.checkbox("Select runs to cancel", choices=[run.run_id for run in _runs.result]).ask()
             confirm = questionary.confirm(f"Cancelling the following runs: {', '.join(sel_runs)}! Are you sure?").ask()
             if confirm:
-                r = self.socket.execute("cancel_runs", experiment_name=self.experiment_name, run_ids=ALL_RUNS)
+                r = self.socket.execute("cancel_runs", experiment_name=self.experiment_name, run_ids=sel_runs)
             else:
                 return
 
