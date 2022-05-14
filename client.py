@@ -132,6 +132,8 @@ class ExperimentClient:
             cmd = questionary.select("Select an action",
                                      choices=[Choice("List runs", self.list_runs),
                                               Choice("Resume run", self.resume_runs),
+                                              Choice("Cancel run", self.cancel_runs),
+                                              Choice("Reset experiment", self.reset),
                                               Choice("Go back", False)]).ask()
             os.system("clear")
             if not cmd:
