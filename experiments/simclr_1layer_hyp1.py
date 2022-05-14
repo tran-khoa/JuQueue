@@ -4,8 +4,9 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import Dict, List, Literal, Optional
 
-from dask_jobqueue import JobQueueCluster, SLURMCluster
+from dask_jobqueue import JobQueueCluster
 
+from cluster.slurm import SLURMCluster
 from entities.executor import Executor, GPUExecutor
 from entities.experiment import BaseExperiment
 from entities.run import Run
@@ -38,10 +39,7 @@ class Experiment(BaseExperiment):
                     log_directory=(self.path / "slurm-logs").as_posix(),
                     processes=4,
                     walltime="24:00:00",
-                    extra=[
-                        "--lifetime", "24h",
-                        "--resources", "slots=1"
-                    ],
+                    extra=["--lifetime", "24h"],
                     job_extra=['--gres=gpu:4'],
                     env_extra=["module load CUDA/11.5",
                                "module load Python/3.9.6",
