@@ -219,7 +219,9 @@ class ExperimentManager:
 
     def _submit_run(self, run: Run) -> Future:
         client = self._clients[run.cluster]
-        fut = client.submit(self._experiment.executor.create(run), key=f"{self._experiment.name}@{run.run_id}")
+        fut = client.submit(self._experiment.executor.create(run),
+                            key=f"{self._experiment.name}@{run.run_id}",
+                            resources={'slots': 1})
         fut.add_done_callback(self._on_run_ended)
         return fut
 

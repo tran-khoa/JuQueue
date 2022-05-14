@@ -95,22 +95,26 @@ class GPUExecutor(Executor):
         return env
 
     def next_gpu(self) -> int:
-        self.__lock.acquire()
-
         gpu_dist_key = f"gpu_dist_{platform.node()}"
+
+        self.__lock.acquire()
 
         dist = list(get_client().get_metadata(keys=[gpu_dist_key], default=[-1] * self.gpus_per_node))
 
-        selected_gpu = -1
-        for gpu, pid in enumerate(dist):
-            if pid < 0 or not self._is_pid_active(pid):
-                selected_gpu = gpu
-                break
-        if selected_gpu < 0:
-            logging.error(f"No free gpu available: {dist}")
-            selected_gpu = random.randrange(self.gpus_per_node)
-            logging.error(f"Assigning random GPU: {selected_gpu}!")
-        dist[selected_gpu] = os.getpid()
+        worker_pid = os.getpid()
+        if os.getpid() in dist:
+            selected_gpu = dist.index(worker_pid)
+        else:
+            selected_gpu = -1
+            for gpu, pid in enumerate(dist):
+                if pid < 0 or not self._is_pid_active(pid):
+                    selected_gpu = gpu
+                    break
+            if selected_gpu < 0:
+                logging.error(f"No free gpu available: {dist}")
+                selected_gpu = random.randrange(self.gpus_per_node)
+                logging.error(f"Assigning random GPU to worker {worker_pid}: {selected_gpu}!")
+            dist[selected_gpu] = worker_pid
 
         get_client().set_metadata([gpu_dist_key], dist)
         self.__lock.release()

@@ -24,18 +24,20 @@ class Experiment(BaseExperiment):
         return {
             "jureca-gpu":
                 SLURMCluster(
+                    name=self.name,
                     queue="dc-gpu",
                     project="jinm60",
-                    cores=64,
+                    cores=128,
                     memory="500G",
                     interface="ib2",
                     scheduler_options={'interface': 'ib0'},
+                    local_directory="/p/scratch/jinm60/tran4/dask",
                     log_directory=(self.path / "slurm-logs").as_posix(),
                     n_workers=4,
-
                     walltime="24:00:00",
                     extra=[
-                        "--lifetime", "1h"
+                        "--lifetime", "24h",
+                        "--resources", "slots=1"
                     ],
                     job_extra=['--gres=gpu:4']
                 ),
