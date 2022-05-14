@@ -33,7 +33,7 @@ class Experiment(BaseExperiment):
                     scheduler_options={'interface': 'ib0'},
                     local_directory="/p/scratch/jinm60/tran4/dask",
                     log_directory=(self.path / "slurm-logs").as_posix(),
-                    n_workers=4,
+                    processes=4,
                     walltime="24:00:00",
                     extra=[
                         "--lifetime", "24h",
