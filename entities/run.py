@@ -78,7 +78,7 @@ class Run:
         cmd = list(self.cmd)
         for key, value in self.parameters.items():
             if self.parameter_format == "argparse":
-                cmd.extend([f"--{key}", value])
+                cmd.extend([f"--{key}", str(value)])
             elif self.parameter_format == "eq":
                 cmd.append(f"{key}={value}")
             else:
