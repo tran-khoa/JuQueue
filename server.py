@@ -178,7 +178,7 @@ if __name__ == '__main__':
         f.write(str(os.getpid()))
 
     logging.basicConfig(filename=Config.WORK_DIR / "server.log",
-                        filemode="a",
+                        filemode="w",
                         level=logging.DEBUG)
     server = Server()
     server_thread = threading.Thread(target=server.loop)

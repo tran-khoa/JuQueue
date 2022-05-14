@@ -8,5 +8,5 @@ class Config:
     SOCKET_ADDRESS: str = f"ipc://{WORK_DIR.as_posix()}/server.sock"
 
     HEARTBEAT_INTERVAL: int = 30  # seconds
-    CLUSTER_ADAPT_INTERVAL: timedelta = timedelta(minutes=15)
+    CLUSTER_ADAPT_INTERVAL: timedelta = timedelta(minutes=1)
 
