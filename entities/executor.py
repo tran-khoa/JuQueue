@@ -24,7 +24,8 @@ class Executor:
         self.prepend_script = prepend_script
 
     def environment(self, run: Run) -> Dict[str, str]:
-        env = run.env.copy()
+        env = os.environ.copy()
+        env.update(run.env)
 
         env['RUN_ID'] = run.run_id
         env['EXPERIMENT_ID'] = run.experiment_name
