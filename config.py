@@ -1,3 +1,4 @@
+from datetime import timedelta
 from pathlib import Path
 
 
@@ -6,4 +7,6 @@ class Config:
     WORK_DIR: Path = Path("juqueue")
     SOCKET_ADDRESS: str = f"ipc://{WORK_DIR.as_posix()}/server.sock"
 
-    HEARTBEAT_INTERVAL: int = 30
+    HEARTBEAT_INTERVAL: int = 30  # seconds
+    CLUSTER_ADAPT_INTERVAL: timedelta = timedelta(minutes=15)
+

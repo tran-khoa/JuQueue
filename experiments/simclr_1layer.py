@@ -74,7 +74,7 @@ class Experiment(BaseExperiment):
                 "log_frequency": 1000,
                 "num_layers": 1,
                 "max_epochs": 50,
-                "data_workers": 0,
+                "data_workers": 1,
                 "cleanup_checkpoints": True,
                 "gpu": True
             },
