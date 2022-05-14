@@ -25,6 +25,7 @@ class Experiment(BaseExperiment):
             "jureca-gpu":
                 SLURMCluster(
                     name=self.name,
+                    job_name=self.name,
                     queue="dc-gpu",
                     project="jinm60",
                     cores=64,

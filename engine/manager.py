@@ -198,7 +198,7 @@ class ExperimentManager:
                 else:
                     logging.info(f"Retrying {run}...")
                     fut.retry()
-                run.last_error = str(fut.traceback())
+                run.last_error = str(fut.exception(timeout=3))
 
             run.save_to_disk()
 
