@@ -75,7 +75,7 @@ class ExperimentManager:
 
             for name, cluster in experiment.clusters.items():
                 if cluster is not None:
-                    cluster.adapt(maximum_jobs=experiment.num_jobs[name])
+                    cluster.adapt(minimum_jobs=1, maximum_jobs=experiment.num_jobs[name]) #TODO
 
             self.init_clusters(experiment)
 
