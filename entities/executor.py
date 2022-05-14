@@ -120,7 +120,7 @@ class GPUExecutor(Executor):
                     selected_gpu = gpu
                     break
             if selected_gpu < 0:
-                logging.error(f"No free gpu available: {dist}")
+                logging.error(f"No free gpu available on {platform.node()}: {dist}")
                 selected_gpu = random.randrange(self.gpus_per_node)
                 logging.error(f"Assigning random GPU to worker {worker_pid}: {selected_gpu}!")
             dist[selected_gpu] = worker_pid

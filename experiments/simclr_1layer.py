@@ -39,7 +39,12 @@ class Experiment(BaseExperiment):
                         "--lifetime", "24h",
                         "--resources", "slots=1"
                     ],
-                    job_extra=['--gres=gpu:4']
+                    job_extra=['--gres=gpu:4'],
+                    env_extra=["module load CUDA/11.5",
+                               "module load Python/3.9.6",
+                               "module load cuDNN/8.3.1.22-CUDA-11.5",
+                               "module load PyTorch/1.11-CUDA-11.5",
+                               "module load torchvision/0.12.0-CUDA-11.5"]
                 ),
             "local": None
         }
@@ -69,7 +74,8 @@ class Experiment(BaseExperiment):
             },
             parameter_format="eq",
             cluster="jureca-gpu",
-            cmd=["python3", "/p/project/jinm60/users/tran4/biasadapt_git/scripts/conv_biasfit/main.py", "emnist_simclr", "start_pretrain"],
+            cmd=["python3", "/p/project/jinm60/users/tran4/biasadapt_git/scripts/conv_biasfit/main.py", "emnist_simclr",
+                 "start_pretrain"],
             experiment_name=self.name
         )
 
@@ -103,13 +109,5 @@ class Experiment(BaseExperiment):
     def executor(self) -> Executor:
         return GPUExecutor(
             gpus_per_node=4,
-            venv="/p/project/jinm60/users/tran4/env_biasadapt",
-            prepend_script=[
-                "module load CUDA/11.5",
-                "module load Python/3.9.6",
-                "module load cuDNN/8.3.1.22-CUDA-11.5",
-                "module load PyTorch/1.11-CUDA-11.5",
-                "module load torchvision/0.12.0-CUDA-11.5"
-            ]
+            venv="/p/project/jinm60/users/tran4/env_biasadapt"
         )
-
