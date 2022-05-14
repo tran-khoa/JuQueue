@@ -88,7 +88,7 @@ class Experiment(BaseExperiment):
         conv_channels = [64, 128, 256, 512]
         filters_init_gains = [0.3, 0.6, 1, 2]
         transforms = ["transforms.RandomResizedCrop(28,scale=(0.6,1.0),ratio=(1.,1.)),transforms.RandomRotation(45)",
-                      "transforms.RandomResizedCrop(28,scale=(0.6,1.0),ratio=(1.,1.)),transforms.RandomErasing(p=0.5,scale=(0.2,0.33),ratio=(0.3,3.3),value=0),transforms.RandomRotation(45)"]
+                      "transforms.RandomResizedCrop(28,scale=(0.6,1.0),ratio=(1.,1.)),transforms.RandomErasing(p=0.5,scale=(0.2,0.33),ratio=(0.3,3.3),value=0.0),transforms.RandomRotation(45)"]
 
         for k, c, f in itertools.product(kernel_sizes, conv_channels, filters_init_gains):
             name = f"krn{k}_chn{c}_gain{f}"
