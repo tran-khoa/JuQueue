@@ -44,7 +44,11 @@ class Experiment(BaseExperiment):
                                "module load Python/3.9.6",
                                "module load cuDNN/8.3.1.22-CUDA-11.5",
                                "module load PyTorch/1.11-CUDA-11.5",
-                               "module load torchvision/0.12.0-CUDA-11.5"]
+                               "module load torchvision/0.12.0-CUDA-11.5",
+                               "module load Pillow-SIMD/9.0.1",
+                               "module load SciPy-bundle/2021.10",
+                               "module load matplotlib/3.4.3",
+                               "module load typing-extensions/3.10.0.0"]
                 ),
             "local": None
         }
