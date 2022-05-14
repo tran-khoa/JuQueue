@@ -4,7 +4,7 @@ from dask_jobqueue.slurm import SLURMJob as DaskSLURMJob
 
 
 class SLURMCluster(DaskSLURMCluster):
-    job_cls = DaskSLURMJob
+    job_cls = SLURMJob
 
     def __init__(self, n_workers=0, job_cls: Job = None, loop=None, security=None, silence_logs="error", name=None,
                  asynchronous=False, dashboard_address=None, host=None, scheduler_options=None, interface=None,
