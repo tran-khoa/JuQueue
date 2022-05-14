@@ -3,6 +3,7 @@ import logging
 import os
 import random
 import shlex
+import stat
 import subprocess
 import tempfile
 import threading
@@ -65,14 +66,18 @@ class Executor:
             stdout.flush()
 
             with tempfile.NamedTemporaryFile("wt") as run_file:
+                os.chmod(run_file.name, stat.ST_MODE | stat.S_IEXEC)
+
                 run_file.write(script)
                 run_file.flush()
 
-                status = subprocess.run(["/bin/bash", run_file.name],
+                status = subprocess.run([run_file.name],
                                         env=env,
                                         cwd=path,
                                         stdout=stdout,
-                                        stderr=stderr).returncode
+                                        stderr=stderr,
+                                        shell=True,
+                                        executable="/bin/bash").returncode
         return status
 
     def create(self, run: Run) -> Callable:
