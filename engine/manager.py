@@ -164,6 +164,7 @@ class ExperimentManager:
             if cluster is not None:
                 if hasattr(cluster, "log_directory"):
                     Path(cluster.log_directory).expanduser().mkdir(parents=True, exist_ok=True)
+                logging.info(f"Setting up Cluster {name} with maximum_jobs={self._experiment.num_jobs[name]}")
                 cluster.adapt(maximum_jobs=self._experiment.num_jobs[name],
                               interval=Config.CLUSTER_ADAPT_INTERVAL)
                 self._clients[name] = Client(cluster)
