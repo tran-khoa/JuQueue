@@ -192,8 +192,12 @@ if __name__ == '__main__':
     logging.basicConfig(filename=Config.WORK_DIR / "server.log",
                         filemode="w",
                         level=logging.DEBUG)
-    server = Server()
-    server_thread = threading.Thread(target=server.loop)
+
+    def server_f():
+        server = Server()
+        server.loop()
+
+    server_thread = threading.Thread(target=server_f)
     server_thread.start()
 
     if args.debug:
