@@ -63,8 +63,7 @@ class ExperimentManager:
         return self._loaded_runs[run_id]
 
     def load_experiment(self, experiment: BaseExperiment):
-        self.__lock.acquire()
-        try:
+        with self.__lock:
             self._experiment = experiment
 
             if self._experiment.status == "finished":
@@ -112,46 +111,36 @@ class ExperimentManager:
                 run = self._loaded_runs[run_id]
                 logging.info(f"Run {run} removed from experiment.")
                 self._delete_run(run)
-        except Exception as ex:
-            logging.error(ex)
-            print(ex)
-        finally:
-            self.__lock.release()
 
         return {"new": ids_new, "updated": ids_updated, "deleted": ids_deleted}
 
     def resume_runs(self, runs: List[Run], states: Optional[List[Literal["failed", "cancelled", "finished"]]] = None) \
             -> List[Run]:
-        self.__lock.acquire()
-        resumed_runs = []
+        with self.__lock:
+            resumed_runs = []
 
-        if states is None:
-            states = ["failed", "cancelled"]
+            if states is None:
+                states = ["failed", "cancelled"]
 
-        for run in runs:
-            if run.status in states:
-                resumed_runs.append(run)
-                run.status = "pending"
-                run.last_run = datetime.datetime.now()
-                run.save_to_disk()
+            for run in runs:
+                if run.status in states:
+                    resumed_runs.append(run)
+                    run.status = "pending"
+                    run.last_run = datetime.datetime.now()
+                    run.save_to_disk()
 
-                self._futures[run.run_id] = self._submit_run(run)
-
-        self.__lock.release()
+                    self._futures[run.run_id] = self._submit_run(run)
 
         return resumed_runs
 
     def cancel_run(self, runs: List[Run]) -> List[Run]:
-        self.__lock.acquire()
-        for run in runs:
-            fut = self._futures.get(run.run_id, False)
-            if fut:
-                fut.cancel()
-            run.status = "cancelled"
-            run.save_to_disk()
-
-
-        self.__lock.release()
+        with self.__lock:
+            for run in runs:
+                fut = self._futures.get(run.run_id, False)
+                if fut:
+                    fut.cancel()
+                run.status = "cancelled"
+                run.save_to_disk()
 
         return runs
 
@@ -187,29 +176,28 @@ class ExperimentManager:
         is_successful = (fut.status == 'finished' and fut.result() == 0)
         is_cancelled = (fut.status == 'cancelled')
 
-        self.__lock.acquire()
-        run = self._loaded_runs[run_uid]
+        with self.__lock:
+            run = self._loaded_runs[run_uid]
 
-        if run.status not in ("pending", "running"):
-            logging.error(f"Ended {run} with status {run.status}!")
-            run.status = "pending"
+            if run.status not in ("pending", "running"):
+                logging.error(f"Ended {run} with status {run.status}!")
+                run.status = "pending"
 
-        if is_cancelled:
-            run.status = "cancelled"
-        elif is_successful:
-            logging.info(f"{run} finished.")
-            run.status = "finished"
-        else:
-            if (datetime.datetime.now() - run.last_run).seconds < self._experiment.fail_period:
-                logging.warning(f"{run} considered failed.")
-                run.status = "failed"
+            if is_cancelled:
+                run.status = "cancelled"
+            elif is_successful:
+                logging.info(f"{run} finished.")
+                run.status = "finished"
             else:
-                logging.info(f"Retrying {run}...")
-                fut.retry()
-            run.last_error = str(fut.traceback())
+                if (datetime.datetime.now() - run.last_run).seconds < self._experiment.fail_period:
+                    logging.warning(f"{run} considered failed.")
+                    run.status = "failed"
+                else:
+                    logging.info(f"Retrying {run}...")
+                    fut.retry()
+                run.last_error = str(fut.traceback())
 
-        run.save_to_disk()
-        self.__lock.release()
+            run.save_to_disk()
 
     def _add_run(self, run: Run):
         if run.status == 'pending':
@@ -241,15 +229,14 @@ class ExperimentManager:
 
     def _heartbeat_run(self, client: Client):
         for run_id in Sub(f"{self.experiment_name}_heartbeat", client=client):
-            self.__lock.acquire()
-            run = self.run_by_id(run_id)
-            if not run:
-                logging.warning(f"[{self.experiment_name}] Discarding heartbeat of unknown run {run_id}.")
-                continue
-            run.status = "running"
-            run.last_heartbeat = datetime.datetime.now()
-            run.save_to_disk()
-            self.__lock.release()
+            with self.__lock:
+                run = self.run_by_id(run_id)
+                if not run:
+                    logging.warning(f"[{self.experiment_name}] Discarding heartbeat of unknown run {run_id}.")
+                    continue
+                run.status = "running"
+                run.last_heartbeat = datetime.datetime.now()
+                run.save_to_disk()
 
     def stop(self):
         print(f"Clearing lock of {self.experiment_name}...")

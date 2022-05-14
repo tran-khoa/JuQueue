@@ -157,7 +157,7 @@ class Server:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--debug")
+    parser.add_argument("--debug", action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
 
     Config.WORK_DIR.mkdir(parents=True, exist_ok=True)
