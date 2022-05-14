@@ -99,13 +99,13 @@ class ExperimentManager:
                     else:
                         logging.info(f"Updating existing run {run}...")
                         logging.warning(f"{run} has changed, this has not been implemented yet :/")
-                        ids_updated.add(run)
+                        ids_updated.add(run.run_id)
                         self._update_run(run)
 
                     ids_deleted.remove(run.run_id)
                 else:
                     logging.info(f"Found new run {run}...")
-                    ids_new.add(run)
+                    ids_new.add(run.run_id)
                     self._add_run(run)
 
             for run_id in ids_deleted:
