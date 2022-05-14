@@ -69,13 +69,11 @@ class Executor:
                 run_file.write(script)
                 run_file.flush()
 
-                status = subprocess.run([run_file.name],
+                status = subprocess.run(["/bin/bash", run_file.name],
                                         env=env,
                                         cwd=path,
                                         stdout=stdout,
-                                        stderr=stderr,
-                                        shell=True,
-                                        executable="/bin/bash").returncode
+                                        stderr=stderr).returncode
         return status
 
     def create(self, run: Run) -> Callable:
