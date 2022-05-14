@@ -193,15 +193,12 @@ if __name__ == '__main__':
                         filemode="w",
                         level=logging.DEBUG)
 
-    def server_f():
-        server = Server()
-        server.loop()
-
-    server_thread = threading.Thread(target=server_f)
-    server_thread.start()
-
     if args.debug:
         from IPython import embed
-        embed()
-    else:
-        server_thread.join()
+        debugger = threading.Thread(target=embed)
+
+    server = Server()
+    server.loop()
+
+    if args.debug:
+        debugger.join()
