@@ -8,6 +8,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Dict, List, Literal, Optional, Union
 
+import dask
 from dask.distributed import Client, Future, Sub
 
 from config import Config
@@ -75,7 +76,7 @@ class ExperimentManager:
 
             for name, cluster in experiment.clusters.items():
                 if cluster is not None:
-                    cluster.adapt(minimum_jobs=1, maximum_jobs=experiment.num_jobs[name]) #TODO
+                    cluster.adapt(minimum_jobs=1, maximum_jobs=experiment.num_jobs[name])
 
             self.init_clusters(experiment)
 
@@ -263,6 +264,8 @@ class Manager:
     def __init__(self, experiments_path: Union[Path, str]):
         self.experiments_path = Path(experiments_path)
         self.managers = {}
+
+        dask.config.set({"logging.distributed": "debug", "logging.tornado": "debug"})
 
     def load_experiments(self):
         importlib.invalidate_caches()
