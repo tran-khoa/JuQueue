@@ -65,19 +65,21 @@ class Executor:
             stdout.write("\n-----------------------------------------\n")
             stdout.flush()
 
-            with tempfile.NamedTemporaryFile("wt") as run_file:
-                os.chmod(run_file.name, stat.ST_MODE | stat.S_IEXEC)
-
+            with tempfile.NamedTemporaryFile("wt", delete=False) as run_file:
                 run_file.write(script)
-                run_file.flush()
 
-                status = subprocess.run([run_file.name],
-                                        env=env,
-                                        cwd=path,
-                                        stdout=stdout,
-                                        stderr=stderr,
-                                        shell=True,
-                                        executable="/bin/bash").returncode
+            os.chmod(run_file.name, stat.ST_MODE | stat.S_IEXEC)
+
+            status = subprocess.run([run_file.name],
+                                    env=env,
+                                    cwd=path,
+                                    stdout=stdout,
+                                    stderr=stderr,
+                                    shell=True,
+                                    executable="/bin/bash").returncode
+
+            os.unlink(run_file.name)
+
         return status
 
     def create(self, run: Run) -> Callable:
