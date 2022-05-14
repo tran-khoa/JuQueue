@@ -57,12 +57,11 @@ class Executor:
             stderr.flush()
 
             stdout.write(f"---------- {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ----------\n")
-            stdout.write("-------------------------\n")
             stdout.write(f"cd {path}\n")
             for key, value in env.items():
                 stdout.write(f"export {key}={value}\n")
             stdout.write(script)
-            stdout.write("\n-------------------------\n")
+            stdout.write("\n-----------------------------------------\n")
             stdout.flush()
 
             with tempfile.NamedTemporaryFile("wt") as run_file:
