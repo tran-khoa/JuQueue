@@ -3,6 +3,12 @@ from dask_jobqueue.core import Job
 from dask_jobqueue.slurm import SLURMJob as DaskSLURMJob
 
 
+class SLURMJob(DaskSLURMJob):
+    @property
+    def worker_process_threads(self):
+        return 1
+
+
 class SLURMCluster(DaskSLURMCluster):
     job_cls = SLURMJob
 
@@ -15,9 +21,3 @@ class SLURMCluster(DaskSLURMCluster):
 
         super().__init__(n_workers, job_cls, loop, security, silence_logs, name, asynchronous, dashboard_address, host,
                          scheduler_options, interface, protocol, config_name, **job_kwargs)
-
-
-class SLURMJob(DaskSLURMJob):
-    @property
-    def worker_process_threads(self):
-        return 1
