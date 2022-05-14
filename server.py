@@ -29,6 +29,7 @@ def server_action(callable):
         try:
             return callable(*args, **kwargs)
         except Exception as ex:
+            traceback.print_exc()
             return Response(success=False, reason=str(ex))
     return f
 
