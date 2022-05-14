@@ -1,5 +1,6 @@
 import itertools
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Dict, List, Literal, Optional
 
 from dask_jobqueue import JobQueueCluster, SLURMCluster
@@ -19,7 +20,7 @@ class Experiment(BaseExperiment):
     def status(self) -> Literal['active', 'inactive']:
         return "active"
 
-    @property
+    @cached_property
     def clusters(self) -> Dict[str, Optional[JobQueueCluster]]:
         return {
             "jureca-gpu":

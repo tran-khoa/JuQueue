@@ -74,10 +74,6 @@ class ExperimentManager:
                 logging.info(f"Experiment {self._experiment.name} already finished.")
                 return
 
-            for name, cluster in experiment.clusters.items():
-                if cluster is not None:
-                    cluster.adapt(minimum_jobs=1, maximum_jobs=experiment.num_jobs[name])
-
             self.init_clusters(experiment)
 
             # TODO allow force-reinit of cluster, stopping all running experiments

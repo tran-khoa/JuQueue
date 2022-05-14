@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from functools import cached_property
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
@@ -22,7 +23,7 @@ class BaseExperiment(ABC):
     def status(self) -> Literal['active', 'inactive']:
         return 'active'
 
-    @property
+    @cached_property
     @abstractmethod
     def clusters(self) -> Dict[str, Optional[JobQueueCluster]]:
         """
