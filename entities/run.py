@@ -110,6 +110,7 @@ class Run:
         return self.path / "juqueue-run.json"
 
     def save_to_disk(self):
+        self.path.mkdir(exist_ok=True, parents=True)
         with open(self.__metadata_path, 'wt') as f:
             json.dump(self._states, f)
 

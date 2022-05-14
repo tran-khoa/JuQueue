@@ -6,7 +6,7 @@ import sys
 import threading
 import traceback
 import warnings
-from typing import Dict, List, Literal, Optional, Set
+from typing import Dict, List, Literal, Optional, Set, Union
 
 import zmq
 
@@ -75,19 +75,31 @@ class Server:
                         result=resumed_runs)
 
     @server_action
-    def cancel_runs(self, experiment_name: str, run_id: str) -> Response[List[Run]]:
+    def cancel_runs(self, experiment_name: str, run_ids: Union[str, List[str]]) -> Response[List[Run]]:
         if experiment_name == ALL_EXPERIMENTS:
             return Response(success=False, reason=f"Cannot reset runs of all experiments at once (yet).")
         if experiment_name not in self.manager.experiment_names:
             return Response(success=False, reason=f"Unknown experiment {experiment_name}...")
 
-        if run_id == ALL_RUNS:
+        if run_ids == ALL_RUNS:
             runs = self.manager.get_runs(experiment_name)
         else:
-            runs = [self.manager.managers[experiment_name].run_by_id(run_id)]
+            if not isinstance(run_ids, list):
+                run_ids = [run_ids]
+            runs = [self.manager.managers[experiment_name].run_by_id(run_id) for run_id in run_ids]
 
         res = self.manager.managers[experiment_name].cancel_run(runs)
         return Response(success=True, result=res)
+
+    @server_action
+    def reset_experiment(self, experiment_name: str) -> Response[None]:
+        if experiment_name == ALL_EXPERIMENTS:
+            return Response(success=False, reason=f"Cannot reset runs of all experiments at once (yet).")
+        if experiment_name not in self.manager.experiment_names:
+            return Response(success=False, reason=f"Unknown experiment {experiment_name}...")
+
+        self.manager.managers[experiment_name].reset()
+        return Response(success=True)
 
     @server_action
     def reload_cluster(self, experiment_name: str):

@@ -66,7 +66,8 @@ class Experiment(BaseExperiment):
             python_search_path=["/p/project/jinm60/users/tran4/biasadapt_git"],
             env={"WANDB_MODE": "offline",
                  "WANDB_DIR": "/p/project/jinm60/users/tran4/out_biasadapt/wandb",
-                 "WANDB_RESUME": "auto"},
+                 "WANDB_RESUME": "auto",
+                 "WANDB_GROUP": self.name},
             parameters={
                 "data_path": "/p/project/jinm60/users/tran4/datasets",
                 "wandb_project": "biasadapt",

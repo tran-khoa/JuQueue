@@ -86,6 +86,7 @@ class Experiment(BaseExperiment):
         )
 
         # sweep grid
+        lr = [0.001, 0.0001]
         kernel_sizes = [3, 5, 7, 9]
         conv_channels = [64, 128, 256, 512]
         filters_init_gains = [0.3, 0.6, 1, 2]

@@ -1,6 +1,7 @@
 import datetime
 import importlib
 import logging
+import shutil
 import threading
 from pathlib import Path
 from threading import Lock
@@ -240,6 +241,19 @@ class ExperimentManager:
                 run.status = "running"
                 run.last_heartbeat = datetime.datetime.now()
                 run.save_to_disk()
+
+    def reset(self):
+        with self.__lock:
+            for fut in self._futures.values():
+                if fut:
+                    fut.cancel()
+            for run in self._loaded_runs.values():
+                run.status = "cancelled"
+                run.last_run = None
+                run.last_heartbeat = None
+
+            shutil.rmtree(self._experiment.path)
+            self._experiment.path.mkdir(parents=True, exist_ok=True)
 
     def stop(self):
         print(f"Clearing lock of {self.experiment_name}...")

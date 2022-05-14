@@ -78,6 +78,45 @@ class ExperimentClient:
             else:
                 print(f"An error occured: {response.reason}")
 
+    def cancel_runs(self):
+        all_runs = questionary.select("", choices=[Choice('Cancel all runs', True),
+                                                   Choice('Cancel runs by selection', False)]).ask()
+        if all_runs:
+            confirm = questionary.confirm(f"Cancelling ALL runs of experiment {self.experiment_name}! Are you sure?").ask()
+            if confirm:
+                r = self.socket.execute("cancel_runs", experiment_name=self.experiment_name, run_ids=ALL_RUNS)
+            else:
+                return
+        else:
+            _runs = self._get_runs()
+            if not _runs.success:
+                print(f"Error: {_runs.reason}")
+                return
+
+            sel_runs = questionary.checkbox("Select runs to cancel", choices=[run.run_id for run in _runs.result]).ask()
+            confirm = questionary.confirm(f"Cancelling the following runs: {', '.join(sel_runs)}! Are you sure?").ask()
+            if confirm:
+                r = self.socket.execute("cancel_runs", experiment_name=self.experiment_name, run_ids=ALL_RUNS)
+            else:
+                return
+
+        if r.success:
+            if r.result:
+                print("Cancelled the following runs: " + ", ".join(run.run_id for run in r.result))
+            else:
+                print("No runs cancelled")
+        else:
+            print(f"An error occured: {r.reason}")
+
+    def reset(self):
+        confirm = questionary.confirm("This will reset ALL runs and delete all associated files. Continue?").ask()
+        if confirm:
+            r = self.socket.execute("reset_experiment", experiment_name=self.experiment_name)
+            if r.success:
+                print(f"Successfully reset experiment {self.experiment_name}!")
+            else:
+                print(f"An error occured: {r.reason}")
+
     def loop(self):
         while True:
             _runs = self._get_runs()
