@@ -17,10 +17,11 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 PIDFILE = Config.WORK_DIR / "server.pid"
+SERVER_ACTIONS = []
 
 
 def server_action(callable):
-    Server.ACTIONS.append(callable.__name__)
+    SERVER_ACTIONS.append(callable.__name__)
 
     def f(*args, **kwargs):
         try:
@@ -31,9 +32,6 @@ def server_action(callable):
 
 
 class Server:
-
-    ACTIONS = []
-
     def __init__(self):
         context = zmq.Context()
         self.socket = context.socket(zmq.REP)
@@ -136,7 +134,7 @@ class Server:
                 meth = req_dict["_meth"]
                 del req_dict["_meth"]
 
-                if meth not in Server.ACTIONS:
+                if meth not in SERVER_ACTIONS:
                     error = f"Unknown action {meth}..."
 
             if not error:
