@@ -19,15 +19,20 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 PIDFILE = Config.WORK_DIR / "server.pid"
 
 
+def server_action(callable):
+    Server.ACTIONS.append(callable.__name__)
+
+    def f(*args, **kwargs):
+        try:
+            return callable(*args, **kwargs)
+        except Exception as ex:
+            return Response(success=False, reason=str(ex))
+    return f
+
+
 class Server:
 
-    ACTIONS = ["get_experiments",
-               "get_runs",
-               "reload",
-               "reload_cluster",
-               "resume_runs",
-               "heartbeat",
-               "quit"]
+    ACTIONS = []
 
     def __init__(self):
         context = zmq.Context()
@@ -37,23 +42,20 @@ class Server:
         self.manager = Manager(Config.ROOT_DIR / "experiments")
         self.manager.load_experiments()
 
+    @server_action
     def get_experiments(self) -> Response[List[str]]:
         return Response(success=True,
                         result=self.manager.experiment_names)
 
+    @server_action
     def get_runs(self, experiment_name: str) -> Response[List[Run]]:
         runs = self.manager.get_runs(experiment_name)
-        if runs is None:
-            return Response(
-                success=False,
-                reason=f"Experiment {experiment_name} not found"
-            )
-        else:
-            return Response(
-                success=True,
-                result=runs
-            )
+        return Response(
+            success=True,
+            result=runs
+        )
 
+    @server_action
     def resume_runs(self, experiment_name: str,
                     run_id: str,
                     states: Optional[List[Literal["failed", "cancelled", "finished"]]]) -> Response[List[Run]]:
@@ -65,37 +67,47 @@ class Server:
         if run_id == ALL_RUNS:
             runs = self.manager.get_runs(experiment_name)
         else:
-            runs = self.manager.managers[experiment_name].run_by_id(run_id)
+            runs = [self.manager.managers[experiment_name].run_by_id(run_id)]
 
         resumed_runs = self.manager.managers[experiment_name].resume_runs(runs, states=states)
-
         return Response(success=True,
                         result=resumed_runs)
 
+    @server_action
+    def cancel_runs(self, experiment_name: str, run_id: str) -> Response[List[Run]]:
+        if experiment_name == ALL_EXPERIMENTS:
+            return Response(success=False, reason=f"Cannot reset runs of all experiments at once (yet).")
+        if experiment_name not in self.manager.experiment_names:
+            return Response(success=False, reason=f"Unknown experiment {experiment_name}...")
+
+        if run_id == ALL_RUNS:
+            runs = self.manager.get_runs(experiment_name)
+        else:
+            runs = [self.manager.managers[experiment_name].run_by_id(run_id)]
+
+        res = self.manager.managers[experiment_name].cancel_run(runs)
+        return Response(success=True, result=res)
+
+    @server_action
     def reload_cluster(self, experiment_name: str):
         if experiment_name == ALL_EXPERIMENTS:
             return Response(success=False, reason=f"Cannot reload cluster of all experiments at once (yet).")
         if experiment_name not in self.manager.experiment_names:
             return Response(success=False, reason=f"Unknown experiment {experiment_name}...")
 
-        try:
-            self.manager.managers[experiment_name].init_clusters(force_reload=True)
-            return Response(success=True)
-        except Exception as e:
-            return Response(success=False, reason=str(e))
+        self.manager.managers[experiment_name].init_clusters(force_reload=True)
+        return Response(success=True)
 
+    @server_action
     def reload(self) -> Response[Dict[str, Dict[str, Set[str]]]]:
-        try:
-            results = self.manager.load_experiments()
-        except Exception as err:
-            return Response(success=False,
-                            reason=str(err))
-
+        results = self.manager.load_experiments()
         return Response(success=True, result=results)
 
+    @server_action
     def heartbeat(self) -> Response[None]:
         return Response(success=True)
 
+    @server_action
     def quit(self):
         print("Exiting server...")
         self.manager.stop()

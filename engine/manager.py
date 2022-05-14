@@ -141,6 +141,20 @@ class ExperimentManager:
 
         return resumed_runs
 
+    def cancel_run(self, runs: List[Run]) -> List[Run]:
+        self.__lock.acquire()
+        for run in runs:
+            fut = self._futures.get(run.run_id, False)
+            if fut:
+                fut.cancel()
+            run.status = "cancelled"
+            run.save_to_disk()
+
+
+        self.__lock.release()
+
+        return runs
+
     def init_clusters(self, experiment: Optional[BaseExperiment] = None, force_reload: bool = False):
         if experiment is None:
             experiment = self._experiment
@@ -287,7 +301,7 @@ class Manager:
             return [run for manager in self.managers.values() for run in manager.runs]
 
         if experiment_name not in self.managers:
-            return None
+            raise ValueError(f"Unknown experiment {experiment_name}")
         return self.managers[experiment_name].runs
 
     def stop(self):
