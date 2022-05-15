@@ -2,13 +2,14 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Callable, Dict, List, Literal, Optional
 
 from dask_jobqueue import JobQueueCluster
 
 from config import Config
 from entities.executor import Executor
 from entities.run import Run
+from entities.scaling import ScalingPolicy
 
 
 @dataclass
@@ -44,6 +45,10 @@ class BaseExperiment(ABC):
     @property
     def executor(self) -> Executor:
         return Executor()
+
+    @property
+    def scaling_policy(self) -> Dict[str, Callable[[int, int], int]]:
+        return {cl: ScalingPolicy.maximize_running for cl in self.clusters.values()}
 
     @property
     def path(self) -> Path:

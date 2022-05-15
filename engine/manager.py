@@ -5,10 +5,12 @@ import shutil
 import threading
 from pathlib import Path
 from threading import Lock
-from typing import Dict, List, Literal, Optional, Union
+from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import dask
 from dask.distributed import Client, Future, Sub
+from dask.distributed.scheduler import TaskState
+from dask_jobqueue import JobQueueCluster
 
 from config import Config
 from entities.experiment import BaseExperiment
@@ -58,12 +60,6 @@ class ExperimentManager:
     def runs(self) -> List[Run]:
         return list(self._loaded_runs.values())
 
-    @property
-    def future_states(self) -> Dict[str, Literal["pending", "cancelled", "lost", "error", "finished"]]:
-        return {
-            run_id: fut.status for run_id, fut in self._futures.items()
-        }
-
     def run_by_id(self, run_id: str) -> Run:
         return self._loaded_runs[run_id]
 
@@ -79,7 +75,6 @@ class ExperimentManager:
 
             # TODO allow force-reinit of cluster, stopping all running experiments
             # TODO runs that have not been scheduled yet should be updateable, lock should stop queueing new runs
-            # TODO allow run control, i.e. start/stopping all runs
 
             # Detect and load runs
             ids_new = set()
@@ -112,6 +107,9 @@ class ExperimentManager:
                 run = self._loaded_runs[run_id]
                 logging.info(f"Run {run} removed from experiment.")
                 self._delete_run(run)
+
+            for name in self._clients.keys():
+                self._rescale_cluster(name)
 
         return {"new": ids_new, "updated": ids_updated, "deleted": ids_deleted}
 
@@ -164,13 +162,45 @@ class ExperimentManager:
                 if hasattr(cluster, "log_directory"):
                     Path(cluster.log_directory).expanduser().mkdir(parents=True, exist_ok=True)
                 logging.info(f"Setting up cluster {name} with maximum_jobs={self._experiment.num_jobs[name]}")
-                cluster.adapt(maximum_jobs=self._experiment.num_jobs[name],
-                              interval=Config.CLUSTER_ADAPT_INTERVAL)
+                logging.info(f"Cluster {name} dashboard address is {cluster.dashboard_link}")
                 self._clients[name] = Client(cluster)
+                self._rescale_cluster(name)
             else:
                 self._clients[name] = Client()
 
-    def _on_run_ended(self, fut: Future):
+    def rescale_clusters(self) -> Dict[str, Tuple[int, int]]:
+        results = {}
+        with self.__lock:
+            for name in self._clients.keys():
+                results[name] = self._rescale_cluster(name)
+
+        return results
+
+    def _rescale_cluster(self, name: str) -> Tuple[int, int]:
+        def get_tasks(dask_scheduler):
+            return dask_scheduler.tasks
+
+        client = self._clients.get(name, False)
+        if not client or not hasattr(client.cluster, "scale"):
+            return -1, -1
+
+        max_jobs = self._experiment.num_jobs[name]
+        workers_per_job = client.cluster.job_cls.worker_processes
+        current_jobs = len(client.scheduler_info()['workers']) / workers_per_job
+
+        tasks: Dict[str, TaskState] = client.run_on_scheduler(get_tasks)
+        remaining_tasks = sum((ts is not None and
+                               ts.state in ("released", "waiting", "no-worker", "processing"))
+                              for ts in tasks.values())
+        recommended_jobs = self._experiment.scaling_policy[name](remaining_tasks, workers_per_job)
+        recommended_jobs = min(recommended_jobs, max_jobs)
+
+        if current_jobs != recommended_jobs:
+            logging.info(f"Rescaling {name}(max_jobs={max_jobs}) from {current_jobs} to {recommended_jobs} jobs.")
+            client.cluster.scale(recommended_jobs)
+        return current_jobs, recommended_jobs
+
+    def on_run_ended(self, fut: Future):
         xp, run_uid = fut.key.split('@')
         if xp != self._experiment.name:
             logging.warning("on_run_ended received future from different experiment")
@@ -228,7 +258,7 @@ class ExperimentManager:
                             key=f"{self._experiment.name}@{run.run_id}",
                             resources={'slots': 1},
                             pure=False)
-        fut.add_done_callback(self._on_run_ended)
+        fut.add_done_callback(self.on_run_ended)
         return fut
 
     def _heartbeat_run(self, client: Client):
