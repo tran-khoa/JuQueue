@@ -26,11 +26,14 @@ class ExperimentManager:
         self._futures: Dict[str, Future] = {}
         self._clients: Dict[str, Client] = {}
 
+        self.__lock = Lock()
+
         self.__heartbeat_setup = False
+        self.__heartbeat_timer = None
         self.poll_heartbeats()
 
-        self.__lock = Lock()
-        self.__heartbeat_timer = None
+        self.__rescale_timer = None
+        self.on_rescale_timer()
 
     def poll_heartbeats(self):
         if list(self._clients.values()):
@@ -51,6 +54,12 @@ class ExperimentManager:
                         run.save_to_disk()
         self.__heartbeat_timer = threading.Timer(Config.HEARTBEAT_INTERVAL / 2, self.poll_heartbeats)
         self.__heartbeat_timer.start()
+
+    def on_rescale_timer(self):
+        self.rescale_clusters()
+
+        self.__rescale_timer = threading.Timer(Config.CLUSTER_ADAPT_INTERVAL.total_seconds(), self.on_rescale_timer)
+        self.__rescale_timer.start()
 
     @property
     def runs(self) -> List[Run]:
@@ -223,8 +232,6 @@ class ExperimentManager:
 
             run.save_to_disk()
 
-        self.rescale_clusters()
-
     def _add_run(self, run: Run):
         if run.status == 'pending':
             future = self._submit_run(run)
@@ -286,6 +293,9 @@ class ExperimentManager:
 
         if self.__heartbeat_timer:
             self.__heartbeat_timer.cancel()
+
+        if self.__rescale_timer:
+            self.__rescale_timer.cancel()
 
         for fut in self._futures.values():
             if fut:
