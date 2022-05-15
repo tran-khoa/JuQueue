@@ -174,9 +174,6 @@ class ExperimentManager:
         return results
 
     def _rescale_cluster(self, name: str) -> Tuple[int, int]:
-        def get_tasks(dask_scheduler):
-            return dask_scheduler.tasks
-
         client = self._clients.get(name, False)
         if not client or not hasattr(client.cluster, "scale"):
             return -1, -1
@@ -185,7 +182,7 @@ class ExperimentManager:
         workers_per_job = client.cluster.processes
         current_jobs = len(client.scheduler_info()['workers']) / workers_per_job
 
-        tasks: Dict[str, TaskState] = client.run_on_scheduler(get_tasks)
+        tasks: Dict[str, TaskState] = client.run_on_scheduler(lambda dask_scheduler: dask_scheduler.tasks)
         remaining_tasks = sum((ts is not None and
                                ts.state in ("released", "waiting", "no-worker", "processing"))
                               for ts in tasks.values())
