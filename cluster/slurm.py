@@ -1,4 +1,4 @@
-from base import Cluster
+from .base import Cluster
 from dask_jobqueue import SLURMCluster as DaskSLURMCluster
 from dask_jobqueue.core import Job
 from dask_jobqueue.slurm import SLURMJob as DaskSLURMJob
