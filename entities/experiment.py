@@ -48,7 +48,7 @@ class BaseExperiment(ABC):
 
     @property
     def scaling_policy(self) -> Dict[str, Callable[[int, int], int]]:
-        return {cl: ScalingPolicy.maximize_running for cl in self.clusters.values()}
+        return {cl: ScalingPolicy.maximize_running for cl in self.clusters.keys()}
 
     @property
     def path(self) -> Path:
