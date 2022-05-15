@@ -5,7 +5,7 @@ from typing import Dict, Union
 import dask
 
 from entities.experiment import BaseExperiment
-from experiment import ALL_EXPERIMENTS, ExperimentManager
+from .experiment import ALL_EXPERIMENTS, ExperimentManager
 
 
 class Manager:
