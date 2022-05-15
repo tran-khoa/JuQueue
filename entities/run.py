@@ -50,6 +50,9 @@ class Run:
     #
     parameter_format: Literal['argparse', 'eq'] = 'argparse'
 
+    #
+    depends_on: Optional[Run] = field(default=None)
+
     def __post_init__(self):
         if not self.is_abstract:
             self.path.mkdir(parents=True, exist_ok=True)
@@ -64,7 +67,8 @@ class Run:
             env=dict(self.env),
             parameters=dict(self.parameters),
             parameter_format=self.parameter_format,
-            python_search_path=self.python_search_path
+            python_search_path=self.python_search_path,
+            depends_on=self.depends_on
         )
 
     @property
@@ -87,7 +91,9 @@ class Run:
 
     @property
     def _states(self) -> Dict[str, Any]:
-        return {"status": self.status, "last_run": self.last_run.isoformat(), "last_error": self.last_error}
+        return {"status": self.status,
+                "last_run": self.last_run.isoformat(),
+                "last_error": self.last_error}
 
     def _restore_states(self, states: Dict[str, Any]):
         self.status = states["status"]
@@ -96,7 +102,7 @@ class Run:
 
     @property
     def path(self) -> Path:
-        return Config.WORK_DIR / Path(f"{self.experiment_name}/{self.run_id}")
+        return Config.WORK_DIR / self.experiment_name / self.run_id
 
     @property
     def log_path(self) -> Path:
@@ -127,15 +133,20 @@ class Run:
     def __eq__(self, other):
         if not isinstance(other, Run):
             return False
-        return (self.run_id == other.run_id) \
-               and (self.experiment_name == other.experiment_name) \
-               and (self.cluster == other.cluster) \
-               and (self.cmd == other.cmd) \
-               and (self.env == other.env) \
-               and (self.is_abstract == other.is_abstract) \
-               and (self.parameters == other.parameters) \
-               and (self.parameter_format == other.parameter_format) \
-               and (self.python_search_path == other.python_search_path)
+
+        fields = [
+            "run_id",
+            "experiment_name",
+            "cluster",
+            "cmd",
+            "env",
+            "is_abstract",
+            "parameters",
+            "parameter_format",
+            "python_search_path"
+        ]
+
+        return all(getattr(self, f) == getattr(other, f) for f in fields)
 
     def __hash__(self) -> int:
-        return hash(self.experiment_name + self.run_id)
+        return hash(self.global_id)

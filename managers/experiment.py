@@ -1,16 +1,13 @@
 import datetime
-import importlib
 import logging
 import shutil
 import threading
 from pathlib import Path
 from threading import Lock
-from typing import Dict, List, Literal, Optional, Tuple, Union
+from typing import Dict, List, Literal, Optional, Tuple
 
-import dask
 from dask.distributed import Client, Future, Sub
 from dask.distributed.scheduler import TaskState
-from dask_jobqueue import JobQueueCluster
 
 from config import Config
 from entities.experiment import BaseExperiment
@@ -34,7 +31,7 @@ class ExperimentManager:
         self.poll_heartbeats()
 
         self.__lock = Lock()
-        self.__timer = None
+        self.__heartbeat_timer = None
 
     def poll_heartbeats(self):
         if list(self._clients.values()):
@@ -53,8 +50,8 @@ class ExperimentManager:
                     if run:
                         run.last_heartbeat = datetime.datetime.fromisoformat(value)
                         run.save_to_disk()
-        self.__timer = threading.Timer(Config.HEARTBEAT_INTERVAL / 2, self.poll_heartbeats)
-        self.__timer.start()
+        self.__heartbeat_timer = threading.Timer(Config.HEARTBEAT_INTERVAL / 2, self.poll_heartbeats)
+        self.__heartbeat_timer.start()
 
     @property
     def runs(self) -> List[Run]:
@@ -232,6 +229,8 @@ class ExperimentManager:
 
             run.save_to_disk()
 
+        self.rescale_clusters()
+
     def _add_run(self, run: Run):
         if run.status == 'pending':
             future = self._submit_run(run)
@@ -291,8 +290,8 @@ class ExperimentManager:
         self.__lock.release()
         print(f"Lock of {self.experiment_name} cleared.")
 
-        if self.__timer:
-            self.__timer.cancel()
+        if self.__heartbeat_timer:
+            self.__heartbeat_timer.cancel()
 
         for fut in self._futures.values():
             if fut:
@@ -301,49 +300,3 @@ class ExperimentManager:
         for cl in self._clients.values():
             if cl:
                 cl.close()
-
-
-class Manager:
-    managers: Dict[str, ExperimentManager]
-
-    def __init__(self, experiments_path: Union[Path, str]):
-        self.experiments_path = Path(experiments_path)
-        self.managers = {}
-
-        dask.config.set({"logging.distributed": "debug", "logging.tornado": "debug"})
-
-    def load_experiments(self):
-        importlib.invalidate_caches()
-
-        results = {}
-        for file in self.experiments_path.glob("*.py"):
-            if file.name.startswith(".") or file.name.startswith("_"):
-                continue
-            module = importlib.import_module(f"experiments.{file.stem}")
-            importlib.reload(module)
-
-            xp: BaseExperiment = module.Experiment()
-            if xp.status == "active":
-                if xp.name not in self.managers:
-                    self.managers[xp.name] = ExperimentManager(xp.name)
-
-                result = self.managers[xp.name].load_experiment(xp)
-                results[xp.name] = result
-        return results
-
-    @property
-    def experiment_names(self):
-        return list(self.managers.keys())
-
-    def get_runs(self, experiment_name: str):
-        if experiment_name == ALL_EXPERIMENTS:
-            return [run for manager in self.managers.values() for run in manager.runs]
-
-        if experiment_name not in self.managers:
-            raise ValueError(f"Unknown experiment {experiment_name}")
-        return self.managers[experiment_name].runs
-
-    def stop(self):
-        for manager in self.managers.values():
-            print(f"Stopping manager {manager.experiment_name}")
-            manager.stop()

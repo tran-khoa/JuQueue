@@ -3,15 +3,15 @@ import logging
 import os
 import pickle
 import sys
-import threading
 import traceback
 import warnings
-from typing import Dict, List, Literal, Optional, Set, Union
+from typing import Dict, List, Literal, Optional, Set, Tuple, Union
 
 import zmq
+from managers.main import Manager
+from managers.experiment import ALL_EXPERIMENTS, ALL_RUNS
 
 from config import Config
-from engine.manager import ALL_EXPERIMENTS, ALL_RUNS, Manager
 from entities.run import Run
 from utils import Response
 
@@ -29,6 +29,7 @@ def server_action(callable):
         try:
             return callable(*args, **kwargs)
         except Exception as ex:
+            logging.exception("Fatal error")
             traceback.print_exc()
             return Response(success=False, reason=str(ex))
     return f
@@ -102,7 +103,7 @@ class Server:
         return Response(success=True)
 
     @server_action
-    def reload_cluster(self, experiment_name: str):
+    def reload_cluster(self, experiment_name: str) -> Response[None]:
         if experiment_name == ALL_EXPERIMENTS:
             return Response(success=False, reason=f"Cannot reload cluster of all experiments at once (yet).")
         if experiment_name not in self.manager.experiment_names:
@@ -110,6 +111,16 @@ class Server:
 
         self.manager.managers[experiment_name].init_clusters(force_reload=True)
         return Response(success=True)
+
+    @server_action
+    def rescale_cluster(self, experiment_name: str) -> Response[Dict[str, Tuple[int, int]]]:
+        if experiment_name == ALL_EXPERIMENTS:
+            return Response(success=False, reason=f"Cannot rescale clusters of all experiments at once (yet).")
+        if experiment_name not in self.manager.experiment_names:
+            return Response(success=False, reason=f"Unknown experiment {experiment_name}...")
+
+        res = self.manager.managers[experiment_name].rescale_clusters()
+        return Response(success=True, result=res)
 
     @server_action
     def reload(self) -> Response[Dict[str, Dict[str, Set[str]]]]:
@@ -134,6 +145,7 @@ class Server:
             request = self.socket.recv()
 
             error = None
+            req_dict = None
 
             try:
                 # noinspection PyTypeChecker
@@ -153,17 +165,9 @@ class Server:
                     error = f"Unknown action {meth}..."
 
             if not error:
-                try:
-                    response = getattr(self, meth)(**req_dict)
-                except Exception as err:
-                    error = f"Exception {err} caught running {meth} with args {req_dict}"
-                    traceback.print_exc()
-                    response = Response(success=False, reason=error)
+                response = getattr(self, meth)(**req_dict)
             else:
                 response = Response(success=False, reason=error)
-
-            if error:
-                logging.error(error)
 
             self.socket.send(pickle.dumps(response))
 
@@ -193,12 +197,5 @@ if __name__ == '__main__':
                         filemode="w",
                         level=logging.DEBUG)
 
-    if args.debug:
-        from IPython import embed
-        debugger = threading.Thread(target=embed)
-
     server = Server()
     server.loop()
-
-    if args.debug:
-        debugger.join()

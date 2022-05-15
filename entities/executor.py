@@ -1,6 +1,7 @@
 import datetime
 import logging
 import os
+import platform
 import random
 import shlex
 import subprocess
@@ -14,7 +15,6 @@ from dask.distributed import Lock, get_client
 
 from config import Config
 from entities.run import Run
-import platform
 
 
 class Executor:
@@ -139,42 +139,3 @@ class GPUExecutor(Executor):
             return False
         else:
             return True
-
-
-class SingularityExecutor(Executor):
-    CONTAINER_ZYGOTE_PATH = "/juqueue/zygote.sh"
-
-    def __init__(self, container_path: Union[Path, str],
-                 binds: Optional[Dict[Union[str, Path], Union[str, Path]]] = None,
-                 singularity_params: Optional[List[str]] = None):
-        super(SingularityExecutor, self).__init__()
-        self.container_path = Path(container_path)
-        self.binds = binds or {}
-        self.binds[Config.ROOT_DIR / "scripts" / "zygote.sh"] = SingularityExecutor.CONTAINER_ZYGOTE_PATH
-        self.singularity_params = singularity_params or []
-
-    def environment(self, run: Run) -> Dict[str, str]:
-        env = super().environment(run)
-        env['ZYGOTE_EXEC'] = shlex.join(run.cmd)
-        env['ZYGOTE_DIR'] = run.path.as_posix()
-        return env
-
-    def execute(self, run: Run) -> int:
-        stdout = (run.log_path / "stdout.log").open("at")
-        stderr = (run.log_path / "stderr.log").open("at")
-
-        cmd = ["singularity", "run"]
-        cmd.extend(self.singularity_params)
-        for src, dst in self.binds.items():
-            if src == "$RUN_PATH":
-                src = run.path
-            cmd.extend(["--bind", f"{src}:{dst}"])
-        cmd.extend([self.container_path.as_posix(), "/bin/bash", SingularityExecutor.CONTAINER_ZYGOTE_PATH])
-
-        result = subprocess.run(cmd,
-                                env=self.environment(run),
-                                stdout=stdout,
-                                stderr=stderr).returncode
-        stdout.close()
-        stderr.close()
-        return result

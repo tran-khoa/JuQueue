@@ -11,8 +11,8 @@ import zmq
 from questionary import Choice
 
 from config import Config
-from engine.manager import ALL_EXPERIMENTS, ALL_RUNS
 from entities.run import Run
+from managers.experiment import ALL_EXPERIMENTS, ALL_RUNS
 from utils import Response
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
