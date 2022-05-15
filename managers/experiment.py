@@ -7,7 +7,6 @@ from threading import Lock
 from typing import Dict, List, Literal, Optional, Tuple
 
 from dask.distributed import Client, Future, Sub
-from dask.distributed.scheduler import TaskState
 
 from config import Config
 from entities.experiment import BaseExperiment
@@ -182,11 +181,9 @@ class ExperimentManager:
         workers_per_job = client.cluster.processes
         current_jobs = len(client.scheduler_info()['workers']) / workers_per_job
 
-        tasks: Dict[str, TaskState] = client.run_on_scheduler(lambda dask_scheduler: dask_scheduler.tasks)
-        remaining_tasks = sum((ts is not None and
-                               ts.state in ("released", "waiting", "no-worker", "processing"))
-                              for ts in tasks.values())
-        recommended_jobs = self._experiment.scaling_policy[name](remaining_tasks, workers_per_job)
+        remaining_runs = sum([run.status in ('running', 'pending') for run in self._loaded_runs.values()])
+
+        recommended_jobs = self._experiment.scaling_policy[name](remaining_runs, workers_per_job)
         recommended_jobs = min(recommended_jobs, max_jobs)
 
         if current_jobs != recommended_jobs:
