@@ -182,7 +182,7 @@ class ExperimentManager:
             return -1, -1
 
         max_jobs = self._experiment.num_jobs[name]
-        workers_per_job = client.cluster.job_cls.worker_processes
+        workers_per_job = client.cluster.processes
         current_jobs = len(client.scheduler_info()['workers']) / workers_per_job
 
         tasks: Dict[str, TaskState] = client.run_on_scheduler(get_tasks)

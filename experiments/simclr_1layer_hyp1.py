@@ -4,8 +4,9 @@ from functools import cached_property
 from typing import Dict, List, Literal, Optional
 import hashlib
 
-from dask_jobqueue import JobQueueCluster, SLURMCluster
 
+from cluster.base import Cluster
+from cluster.slurm import SLURMCluster
 from entities.executor import Executor, GPUExecutor
 from entities.experiment import BaseExperiment
 from entities.run import Run
@@ -22,7 +23,7 @@ class Experiment(BaseExperiment):
         return "active"
 
     @cached_property
-    def clusters(self) -> Dict[str, Optional[JobQueueCluster]]:
+    def clusters(self) -> Dict[str, Optional[Cluster]]:
         return {
             "jureca-gpu":
                 SLURMCluster(

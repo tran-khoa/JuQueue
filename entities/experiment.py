@@ -4,7 +4,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Optional
 
-from dask_jobqueue import JobQueueCluster
+from cluster.base import Cluster
 
 from config import Config
 from entities.executor import Executor
@@ -26,7 +26,7 @@ class BaseExperiment(ABC):
 
     @cached_property
     @abstractmethod
-    def clusters(self) -> Dict[str, Optional[JobQueueCluster]]:
+    def clusters(self) -> Dict[str, Optional[Cluster]]:
         """
         https://jobqueue.dask.org/en/latest/generated/dask_jobqueue.SLURMCluster.html
         """
