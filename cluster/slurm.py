@@ -16,7 +16,7 @@ class SLURMCluster(DaskSLURMCluster, Cluster):
     def __init__(self, n_workers=0, job_cls: Job = None, loop=None, security=None, silence_logs="error", name=None,
                  asynchronous=False, dashboard_address=None, host=None, scheduler_options=None, interface=None,
                  protocol="tcp://", config_name=None, **job_kwargs):
-        assert "processes" in self._job_kwargs
+        assert "processes" in job_kwargs
 
         if "extra" not in job_kwargs:
             job_kwargs["extra"] = []
