@@ -97,7 +97,7 @@ class Experiment(BaseExperiment):
         conv_channels = [64, 128, 256, 512]
 
         for l, k, c, f in itertools.product(lr, kernel_sizes, conv_channels, filters_init_gains):
-            name = f"lr_{l}_krn{k}_chn{c}_gain{f}"
+            name = f"lr{l}_krn{k}_chn{c}_gain{f}"
 
             run = base_run.fork(run_id=name)
             run.parameters.update({
@@ -108,9 +108,7 @@ class Experiment(BaseExperiment):
                 "work_dir": (run.path / "output").as_posix()
             })
             run.cmd.extend(["--name", name])
-            wandb_id = name
-            if len(wandb_id) > 64:
-                wandb_id = hashlib.sha224(wandb_id.encode("utf8")).hexdigest()[:64]
+            wandb_id = hashlib.sha224(name.encode("utf8")).hexdigest()[:24]
             run.env["WANDB_RUN_ID"] = wandb_id
 
             runs.append(run)
