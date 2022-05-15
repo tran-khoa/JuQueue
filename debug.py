@@ -4,6 +4,8 @@ import importlib
 import questionary
 from questionary import Choice
 
+from dask.distributed import Client
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("name")
@@ -15,6 +17,8 @@ if __name__ == '__main__':
     experiment = mod.Experiment()
 
     run = questionary.select("Choose a run:", [Choice(run.run_id, run) for run in experiment.runs]).ask()
+
+    client = Client()
 
     for k, v in run.env.items():
         print(f"export {k}={v}")
