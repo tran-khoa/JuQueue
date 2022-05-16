@@ -52,6 +52,9 @@ class Executor:
     def execute(self, run: Run) -> int:
         self.heartbeat(run)
 
+        run.path.mkdir(parents=True, exist_ok=True)
+        run.log_path.mkdir(parents=True, exist_ok=True)
+
         script = self.create_script(run)
         env = self.environment(run)
         path = run.path.as_posix()

@@ -1,9 +1,8 @@
+import hashlib
 import itertools
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Dict, List, Literal, Optional
-import hashlib
-
 
 from cluster.base import Cluster
 from cluster.slurm import SLURMCluster
@@ -16,7 +15,7 @@ from entities.run import Run
 class Experiment(BaseExperiment):
     @property
     def name(self) -> str:
-        return "simclr_1layer_hyp1"
+        return "simclr_1layer"
 
     @property
     def status(self) -> Literal['active', 'inactive']:

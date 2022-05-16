@@ -5,3 +5,5 @@ dill
 questionary
 tableprint
 pyzmq
+loguru
+tornado

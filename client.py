@@ -9,10 +9,11 @@ import questionary
 import tableprint as tp
 import zmq
 from questionary import Choice
+from zmq import REQ_RELAXED
 
+from backend.utils import ALL_EXPERIMENTS, ALL_RUNS
 from config import Config
 from entities.run import Run
-from managers.experiment import ALL_EXPERIMENTS, ALL_RUNS
 from utils import Response
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -21,6 +22,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 class ServerSocket:
     def __init__(self):
         self._context = zmq.Context()
+        self._context.setsockopt(REQ_RELAXED, 1)
         self._socket = self._context.socket(zmq.REQ)
         self._socket.connect(Config.SOCKET_ADDRESS)
 
@@ -36,6 +38,9 @@ class ServerSocket:
             return pickle.loads(self._socket.recv())
         else:
             raise TimeoutError()
+
+    def disconnect(self):
+        self._socket.disconnect(Config.SOCKET_ADDRESS)
 
 
 class ExperimentClient:
@@ -55,8 +60,10 @@ class ExperimentClient:
         tp.table(headers=["ID", "Status", "Last run", "Last heartbeat"],
                  data=[(run.run_id,
                         run.status,
-                        run.last_run.isoformat() if run.last_run else "-",
-                        run.last_heartbeat.isoformat() if run.last_heartbeat else "-") for run in _runs.result])
+                        run.last_run.strftime("%Y-%m-%d %H:%M:%S") if run.last_run else "-",
+                        run.last_heartbeat.strftime("%Y-%m-%d %H:%M:%S") if run.last_heartbeat else "-")
+                       for run in _runs.result],
+                 style="fancy_grid")
 
     def resume_runs(self):
         states = questionary.checkbox('Resume runs with the following states:',
@@ -82,7 +89,8 @@ class ExperimentClient:
         all_runs = questionary.select("", choices=[Choice('Cancel all runs', True),
                                                    Choice('Cancel runs by selection', False)]).ask()
         if all_runs:
-            confirm = questionary.confirm(f"Cancelling ALL runs of experiment {self.experiment_name}! Are you sure?").ask()
+            confirm = questionary.confirm(f"Cancelling ALL runs of experiment {self.experiment_name}! "
+                                          f"Are you sure?").ask()
             if confirm:
                 r = self.socket.execute("cancel_runs", experiment_name=self.experiment_name, run_ids=ALL_RUNS)
             else:
@@ -160,7 +168,8 @@ class Client:
             return
 
         tp.table(headers=["id", "name"],
-                 data=list(enumerate(response.result)))
+                 data=list(enumerate(response.result)),
+                 style="fancy_grid")
         xp = questionary.select("Select an experiment",
                                 choices=response.result).ask()
         os.system("clear")
@@ -178,7 +187,9 @@ class Client:
                  data=[(run.experiment_name,
                         run.run_id,
                         run.status,
-                        run.last_heartbeat.isoformat() if run.last_heartbeat else "-") for run in runs])
+                        run.last_heartbeat.strftime("%Y-%m-%d %H:%M:%S") if run.last_heartbeat else "-")
+                       for run in runs],
+                 style="fancy_grid")
 
     def stop_server(self):
         confirm = questionary.confirm("Are you sure?")
@@ -210,6 +221,7 @@ class Client:
                     print("\t" + run)
 
     def quit(self):
+        self.socket.disconnect()
         sys.exit(0)
 
     def loop(self):

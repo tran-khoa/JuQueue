@@ -117,8 +117,12 @@ class Run:
 
     def save_to_disk(self):
         self.path.mkdir(exist_ok=True, parents=True)
+        states = self._states
+        if states['status'] == "running":
+            states['status'] = "pending"
+
         with open(self.__metadata_path, 'wt') as f:
-            json.dump(self._states, f)
+            json.dump(states, f)
 
     def load_from_disk(self) -> bool:
         if not self.__metadata_path.exists():

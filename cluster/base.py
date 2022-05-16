@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+
 from dask_jobqueue import JobQueueCluster
 
 

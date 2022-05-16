@@ -1,182 +1,202 @@
-import argparse
+import asyncio
 import logging
 import os
 import pickle
 import sys
-import threading
 import traceback
 import warnings
 from typing import Dict, List, Literal, Optional, Set, Tuple, Union
 
-import zmq
-from managers.main import Manager
-from managers.experiment import ALL_EXPERIMENTS, ALL_RUNS
+import zmq.asyncio
 
+from backend.backend import Backend
+from backend.utils import ALL_EXPERIMENTS, ALL_RUNS
 from config import Config
 from entities.run import Run
 from utils import Response
-
-warnings.simplefilter(action='ignore', category=FutureWarning)
-
 
 PIDFILE = Config.WORK_DIR / "server.pid"
 SERVER_ACTIONS = []
 
 
-def server_action(callable):
-    SERVER_ACTIONS.append(callable.__name__)
+def server_action(action):
+    SERVER_ACTIONS.append(action.__name__)
 
     def f(*args, **kwargs):
         try:
-            return callable(*args, **kwargs)
+            logging.info(f"Client requested calling {action.__name__}"
+                         f"({', '.join(f'{k}={v}' for k, v in kwargs.items())})")
+            return action(*args, **kwargs)
         except Exception as ex:
-            logging.exception("Fatal error")
+            logging.error("Fatal error", exc_info=True)
             traceback.print_exc()
             return Response(success=False, reason=str(ex))
+
     return f
 
 
 class Server:
     def __init__(self):
-        context = zmq.Context()
-        self.socket = context.socket(zmq.REP)
-        self.socket.bind(Config.SOCKET_ADDRESS)
+        context = zmq.asyncio.Context()
+        self._socket: zmq.asyncio.Socket = context.socket(zmq.REP)
+        self._socket.bind(Config.SOCKET_ADDRESS)
 
-        self.manager = Manager(Config.ROOT_DIR / "experiments")
-        self.manager.load_experiments()
+        self._event_loop = asyncio.new_event_loop()
+        self._backend = Backend(Config.ROOT_DIR / "experiments", self._event_loop)
 
     @server_action
-    def get_experiments(self) -> Response[List[str]]:
+    async def get_experiments(self) -> Response[List[str]]:
         return Response(success=True,
-                        result=self.manager.experiment_names)
+                        result=self._backend.experiment_names)
 
     @server_action
-    def get_runs(self, experiment_name: str) -> Response[List[Run]]:
-        runs = self.manager.get_runs(experiment_name)
+    async def get_runs(self, experiment_name: str) -> Response[List[Run]]:
+        if experiment_name != ALL_EXPERIMENTS and not self._backend.has_experiment(experiment_name):
+            return Response(success=False, reason=f"Experiment '{experiment_name}' not found.")
+
+        if experiment_name == ALL_EXPERIMENTS:
+            experiments = self._backend.experiment_names
+        else:
+            experiments = [experiment_name]
+
+        runs = [run for ex in experiments for run in self._backend.managers[ex].runs]
+
         return Response(
             success=True,
             result=runs
         )
 
     @server_action
-    def resume_runs(self, experiment_name: str,
-                    run_id: str,
-                    states: Optional[List[Literal["failed", "cancelled", "finished"]]]) -> Response[List[Run]]:
+    async def resume_runs(self, experiment_name: str,
+                          run_id: str,
+                          states: Optional[List[Literal["failed", "cancelled", "finished"]]]) -> Response[List[Run]]:
         if experiment_name == ALL_EXPERIMENTS:
             return Response(success=False, reason=f"Cannot reset runs of all experiments at once (yet).")
-        if experiment_name not in self.manager.experiment_names:
+        if experiment_name not in self._backend.experiment_names:
             return Response(success=False, reason=f"Unknown experiment {experiment_name}...")
 
         if run_id == ALL_RUNS:
-            runs = self.manager.get_runs(experiment_name)
+            runs = self._backend.managers[experiment_name].runs
         else:
-            runs = [self.manager.managers[experiment_name].run_by_id(run_id)]
+            runs = [self._backend.managers[experiment_name].run_by_id(run_id)]
 
-        resumed_runs = self.manager.managers[experiment_name].resume_runs(runs, states=states)
+        resumed_runs = await self._backend.managers[experiment_name].resume_runs(runs, states=states)
         return Response(success=True,
                         result=resumed_runs)
 
     @server_action
-    def cancel_runs(self, experiment_name: str, run_ids: Union[str, List[str]]) -> Response[List[Run]]:
+    async def cancel_runs(self, experiment_name: str, run_ids: Union[str, List[str]]) -> Response[List[Run]]:
         if experiment_name == ALL_EXPERIMENTS:
             return Response(success=False, reason=f"Cannot reset runs of all experiments at once (yet).")
-        if experiment_name not in self.manager.experiment_names:
+        if experiment_name not in self._backend.experiment_names:
             return Response(success=False, reason=f"Unknown experiment {experiment_name}...")
 
         if run_ids == ALL_RUNS:
-            runs = self.manager.get_runs(experiment_name)
+            runs = self._backend.managers[experiment_name].runs
         else:
             if not isinstance(run_ids, list):
                 run_ids = [run_ids]
-            runs = [self.manager.managers[experiment_name].run_by_id(run_id) for run_id in run_ids]
+            runs = [self._backend.managers[experiment_name].run_by_id(run_id) for run_id in run_ids]
 
-        res = self.manager.managers[experiment_name].cancel_run(runs)
+        res = await self._backend.managers[experiment_name].cancel_runs(runs)
         return Response(success=True, result=res)
 
     @server_action
-    def reset_experiment(self, experiment_name: str) -> Response[None]:
+    async def reset_experiment(self, experiment_name: str) -> Response[None]:
         if experiment_name == ALL_EXPERIMENTS:
             return Response(success=False, reason=f"Cannot reset runs of all experiments at once (yet).")
-        if experiment_name not in self.manager.experiment_names:
+        if experiment_name not in self._backend.experiment_names:
             return Response(success=False, reason=f"Unknown experiment {experiment_name}...")
 
-        self.manager.managers[experiment_name].reset()
+        await self._backend.managers[experiment_name].reset()
         return Response(success=True)
 
     @server_action
-    def reload_cluster(self, experiment_name: str) -> Response[None]:
+    async def reload_cluster(self, experiment_name: str) -> Response[None]:
         if experiment_name == ALL_EXPERIMENTS:
             return Response(success=False, reason=f"Cannot reload cluster of all experiments at once (yet).")
-        if experiment_name not in self.manager.experiment_names:
+        if experiment_name not in self._backend.experiment_names:
             return Response(success=False, reason=f"Unknown experiment {experiment_name}...")
 
-        self.manager.managers[experiment_name].init_clusters(force_reload=True)
+        await self._backend.managers[experiment_name].init_clusters(force_reload=True)
         return Response(success=True)
 
     @server_action
-    def rescale_cluster(self, experiment_name: str) -> Response[Dict[str, Tuple[int, int]]]:
+    async def rescale_cluster(self, experiment_name: str) -> Response[Dict[str, Tuple[int, int]]]:
         if experiment_name == ALL_EXPERIMENTS:
             return Response(success=False, reason=f"Cannot rescale clusters of all experiments at once (yet).")
-        if experiment_name not in self.manager.experiment_names:
+        if experiment_name not in self._backend.experiment_names:
             return Response(success=False, reason=f"Unknown experiment {experiment_name}...")
 
-        res = self.manager.managers[experiment_name].rescale_clusters()
+        res = await self._backend.managers[experiment_name].rescale_clusters()
         return Response(success=True, result=res)
 
     @server_action
-    def reload(self) -> Response[Dict[str, Dict[str, Set[str]]]]:
-        results = self.manager.load_experiments()
+    async def reload(self) -> Response[Dict[str, Dict[str, Set[str]]]]:
+        results = await self._backend.load_experiments()
         return Response(success=True, result=results)
 
     @server_action
-    def heartbeat(self) -> Response[None]:
+    async def heartbeat(self) -> Response[None]:
         return Response(success=True)
 
     @server_action
-    def quit(self):
-        print("Exiting server...")
-        self.manager.stop()
+    async def quit(self):
+        print("Stopping server...")
+        await self._backend.stop()
+
+        self._event_loop.stop()
 
         PIDFILE.unlink(missing_ok=True)
         sys.exit(0)
 
-    def loop(self):
+    def start(self):
+        # Start backend loop in main thread
+        async def _init():
+            await self._backend.load_experiments()
+            await self._request_loop()
+
+        self._event_loop.create_task(_init(), name="request_loop")
+
+        if os.environ.get("DEBUG", False):
+            logging.info("Event loop debugging activated.")
+            self._event_loop.set_debug(True)
+
+        try:
+            self._event_loop.run_forever()
+        finally:
+            self._event_loop.close()
+
+    async def _handle_request(self, req) -> Response:
+        req_dict = pickle.loads(req)
+
+        if not isinstance(req_dict, dict) or "_meth" not in req_dict:
+            raise ValueError("Request is not a dictionary or does not contain a method.")
+
+        meth = req_dict["_meth"]
+        del req_dict["_meth"]
+
+        if meth not in SERVER_ACTIONS:
+            raise NotImplementedError(f"Method {meth} does not exist.")
+
+        return await getattr(self, meth)(**req_dict)
+
+    async def _request_loop(self):
         logging.info(f"Server running on {Config.SOCKET_ADDRESS}...")
         while True:
-            request = self.socket.recv()
-
-            error = None
-            req_dict = None
+            request = await self._socket.recv()
 
             try:
-                # noinspection PyTypeChecker
-                req_dict = pickle.loads(request)
-            except pickle.PickleError:
-                error = f"Received invalid request {request}"
+                response = await self._handle_request(request)
+            except Exception as ex:
+                logging.error(f"Error {ex} occured during request handling!", exc_info=True)
+                response = Response(success=False, reason=str(ex))
 
-            if not error:
-                if not isinstance(req_dict, dict) or "_meth" not in req_dict:
-                    error = f"Received invalid request {req_dict}"
-
-            if not error:
-                meth = req_dict["_meth"]
-                del req_dict["_meth"]
-
-                if meth not in SERVER_ACTIONS:
-                    error = f"Unknown action {meth}..."
-
-            if not error:
-                response = getattr(self, meth)(**req_dict)
-            else:
-                response = Response(success=False, reason=error)
-
-            self.socket.send(pickle.dumps(response))
+            await self._socket.send(pickle.dumps(response))
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--debug", action=argparse.BooleanOptionalAction)
-    args = parser.parse_args()
+    warnings.simplefilter(action='ignore', category=FutureWarning)
 
     Config.WORK_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -199,4 +219,4 @@ if __name__ == '__main__':
                         level=logging.DEBUG)
 
     server = Server()
-    server.loop()
+    server.start()

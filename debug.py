@@ -2,9 +2,8 @@ import argparse
 import importlib
 
 import questionary
-from questionary import Choice
-
 from dask.distributed import Client
+from questionary import Choice
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

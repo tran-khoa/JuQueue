@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Optional
 
 from cluster.base import Cluster
-
 from config import Config
 from entities.executor import Executor
 from entities.run import Run
