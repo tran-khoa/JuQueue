@@ -7,6 +7,7 @@ import traceback
 import warnings
 from typing import Dict, List, Literal, Optional, Set, Tuple, Union
 
+from loguru import logger
 import zmq.asyncio
 
 from backend.backend import Backend
@@ -24,11 +25,11 @@ def server_action(action):
 
     def f(*args, **kwargs):
         try:
-            logging.info(f"Client requested calling {action.__name__}"
+            logger.info(f"Client requested calling {action.__name__}"
                          f"({', '.join(f'{k}={v}' for k, v in kwargs.items())})")
             return action(*args, **kwargs)
         except Exception as ex:
-            logging.error("Fatal error", exc_info=True)
+            logger.error("Fatal error", exc_info=True)
             traceback.print_exc()
             return Response(success=False, reason=str(ex))
 
@@ -159,7 +160,7 @@ class Server:
         self._event_loop.create_task(_init(), name="request_loop")
 
         if os.environ.get("DEBUG", False):
-            logging.info("Event loop debugging activated.")
+            logger.info("Event loop debugging activated.")
             self._event_loop.set_debug(True)
 
         try:
@@ -182,14 +183,14 @@ class Server:
         return await getattr(self, meth)(**req_dict)
 
     async def _request_loop(self):
-        logging.info(f"Server running on {Config.SOCKET_ADDRESS}...")
+        logger.info(f"Server running on {Config.SOCKET_ADDRESS}...")
         while True:
             request = await self._socket.recv()
 
             try:
                 response = await self._handle_request(request)
             except Exception as ex:
-                logging.error(f"Error {ex} occured during request handling!", exc_info=True)
+                logger.error(f"Error {ex} occured during request handling!", exc_info=True)
                 response = Response(success=False, reason=str(ex))
 
             await self._socket.send(pickle.dumps(response))
@@ -214,9 +215,12 @@ if __name__ == '__main__':
     with open(PIDFILE, 'w') as f:
         f.write(str(os.getpid()))
 
-    logging.basicConfig(filename=Config.WORK_DIR / "server.log",
-                        filemode="w",
-                        level=logging.DEBUG)
+    log_path = Config.WORK_DIR / "logs"
+    log_path.mkdir(exist_ok=True, parents=True)
+
+    logging.basicConfig(level=logging.DEBUG)
+
+    logger.add((log_path / "server.log").as_posix(), format="{time} {level} {message}", rotation="1 day", compression="gz")
 
     server = Server()
     server.start()

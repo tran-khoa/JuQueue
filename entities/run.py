@@ -7,51 +7,43 @@ from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
 from config import Config
+from entities.run_state import RunState, RunStatus
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class Run:
     # Run identifier, unique inside the respective experiment, equal for runs with the same hyperparameters
     run_id: str
 
-    #
+    # Experiment name
     experiment_name: str
 
-    #
+    # Name of cluster to run on
     cluster: str
 
-    #
+    # List of commands
     cmd: List[str]
 
-    #
+    # Additional environment variables
     env: Dict[str, str] = field(default_factory=dict)
 
-    #
+    # Abstract runs cannot be run, but forked
     is_abstract: bool = False
 
-    #
-    status: Literal['running', 'pending', 'failed', 'cancelled', 'finished'] = field(default='pending', init=False)
+    # State
+    state: RunState = RunState()
 
-    #
-    last_run: Optional[datetime] = field(default=None, init=False)
-
-    #
-    last_error: Optional[str] = field(default=None, init=False)
-
-    #
-    last_heartbeat: Optional[datetime] = field(default=None, init=False)
-
-    #
+    # Paths appended to PYTHONPATH
     python_search_path: List[str] = field(default_factory=list)
 
-    #
+    # Dictionary of parameters appended to cmd
     parameters: Dict[str, str] = field(default_factory=dict)
 
-    #
+    # Format of the appended parameter (argparse: --key value, eq: k=v)
     parameter_format: Literal['argparse', 'eq'] = 'argparse'
 
-    #
-    depends_on: Optional[Run] = field(default=None)
+    # Execute this run only if the specified runs are finished
+    depends_on: Optional[List[Run]] = field(default_factory=list)
 
     def __post_init__(self):
         if not self.is_abstract:
@@ -90,17 +82,6 @@ class Run:
         return cmd
 
     @property
-    def _states(self) -> Dict[str, Any]:
-        return {"status": self.status,
-                "last_run": self.last_run.isoformat(),
-                "last_error": self.last_error}
-
-    def _restore_states(self, states: Dict[str, Any]):
-        self.status = states["status"]
-        self.last_run = datetime.fromisoformat(states["last_run"])
-        self.last_error = states["last_error"]
-
-    @property
     def path(self) -> Path:
         return Config.WORK_DIR / self.experiment_name / self.run_id
 
@@ -117,21 +98,17 @@ class Run:
 
     def save_to_disk(self):
         self.path.mkdir(exist_ok=True, parents=True)
-        states = self._states
-        if states['status'] == "running":
-            states['status'] = "pending"
 
         with open(self.__metadata_path, 'wt') as f:
-            json.dump(states, f)
+            json.dump(self.state.state_dict(), f)
 
     def load_from_disk(self) -> bool:
         if not self.__metadata_path.exists():
             return False
 
         with open(self.__metadata_path, 'rt') as f:
-            d = json.load(f)
+            self.state.load_state_dict(json.load(f))
 
-        self._restore_states(d)
         return True
 
     def __eq__(self, other):
@@ -152,5 +129,18 @@ class Run:
 
         return all(getattr(self, f) == getattr(other, f) for f in fields)
 
-    def __hash__(self) -> int:
-        return hash(self.global_id)
+    @property
+    def status(self) -> RunStatus:
+        return self.state.status
+
+    @property
+    def last_run(self) -> Optional[datetime]:
+        return self.state.last_run
+
+    @property
+    def last_error(self) -> Optional[str]:
+        return self.state.last_error
+
+    @property
+    def last_heartbeat(self) -> Optional[datetime]:
+        return self.state.last_heartbeat

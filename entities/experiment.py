@@ -66,5 +66,5 @@ class BaseExperiment(ABC):
 
     @property
     def fail_period(self) -> int:
-        """If run exits after N (default: 120) seconds with non-zero status code, consider run failed"""
-        return 120
+        """If run exits after N (default: 5) seconds with non-zero status code, consider run failed"""
+        return 5
