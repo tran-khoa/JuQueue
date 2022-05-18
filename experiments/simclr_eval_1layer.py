@@ -104,7 +104,7 @@ class Experiment(BaseExperiment):
             run = base_run.fork(run_id=name)
             run.parameters.update({
                 "lr": lr,
-                "load_params_from": (pr.path / "output" / run.run_id / "checkpoints" / "checkpoint_best.pt").as_posix(),
+                "load_params_from": (pr.path / "output" / pr.run_id / "checkpoints" / "checkpoint_best.pt").as_posix(),
                 "kernel_sizes": pr.parameters["kernel_sizes"],
                 "conv_channels": pr.parameters["conv_channels"],
                 "work_dir": (run.path / "output").as_posix()
