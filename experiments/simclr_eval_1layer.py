@@ -85,7 +85,7 @@ class Experiment(BaseExperiment):
             parameter_format="eq",
             cluster="jureca-gpu",
             cmd=["python3", "/p/project/jinm60/users/tran4/biasadapt_git/scripts/conv_biasfit/main.py", "emnist_simclr_bias",
-                 "start_finetrain"],
+                 "start_finetune"],
             experiment_name=self.name
         )
 
