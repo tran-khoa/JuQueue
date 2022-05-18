@@ -116,6 +116,13 @@ class ExperimentClient:
         else:
             print(f"An error occured: {r.reason}")
 
+    def rescale(self):
+        r = self.socket.execute("rescale_cluster", experiment_name=self.experiment_name)
+        if r.success:
+            print("Rescaling requested.")
+        else:
+            print(f"An error occured: {r.reason}")
+
     def reset(self):
         confirm = questionary.confirm("This will reset ALL runs and delete all associated files. Continue?").ask()
         if confirm:

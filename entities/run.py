@@ -37,7 +37,7 @@ class Run:
     python_search_path: List[str] = field(default_factory=list)
 
     # Dictionary of parameters appended to cmd
-    parameters: Dict[str, str] = field(default_factory=dict)
+    parameters: Dict[str, Any] = field(default_factory=dict)
 
     # Format of the appended parameter (argparse: --key value, eq: k=v)
     parameter_format: Literal['argparse', 'eq'] = 'argparse'

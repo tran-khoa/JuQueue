@@ -10,6 +10,8 @@ from entities.executor import Executor, GPUExecutor
 from entities.experiment import BaseExperiment
 from entities.run import Run
 
+from .simclr_1layer import Experiment as PretrainExperiment
+
 
 @dataclass
 class Experiment(BaseExperiment):
@@ -67,14 +69,14 @@ class Experiment(BaseExperiment):
             env={"WANDB_MODE": "offline",
                  "WANDB_CACHE_DIR": "/p/scratch/jinm60/tran4/wandb",
                  "WANDB_RESUME": "auto",
-                 "WANDB_RUN_GROUP": "emnist_simclr_pretrain"},
+                 "WANDB_RUN_GROUP": "emnist_simclr_1layer_eval"},
             parameters={
                 "data_path": "/p/project/jinm60/users/tran4/datasets",
                 "wandb_project": "biasadapt",
                 "batch_size": 4096,
                 "log_frequency": 1000,
                 "num_layers": 1,
-                "max_epochs": 60,
+                "max_epochs": 20,
                 "data_workers": 1,
                 "cleanup_checkpoints": True,
                 "gpu": True,
@@ -82,29 +84,29 @@ class Experiment(BaseExperiment):
             },
             parameter_format="eq",
             cluster="jureca-gpu",
-            cmd=["python3", "/p/project/jinm60/users/tran4/biasadapt_git/scripts/conv_biasfit/main.py", "emnist_simclr",
-                 "start_pretrain"],
+            cmd=["python3", "/p/project/jinm60/users/tran4/biasadapt_git/scripts/conv_biasfit/main.py", "emnist_simclr_bias",
+                 "start_finetrain"],
             experiment_name=self.name
         )
 
-        # Parameters as determined by hyp1
-        base_run.parameters['transforms'] = "transforms.RandomResizedCrop(28,scale=(0.6,1.0),ratio=(1.,1.)),transforms.RandomRotation(45)"
+        # Model parameters
+        base_run.parameters["task_bias_init"] = "KaimingUniformInitializer(gain=0.577)"
+        base_run.parameters["use_mlp"] = False
 
         # Sweep grid
+        pretrain_runs = PretrainExperiment().runs
         lr = [0.001, 0.0001, 0.00001]
-        filters_init_gains = [0.3, 0.6, 1, 2]
-        kernel_sizes = [3, 5, 7, 9]
-        conv_channels = [64, 128, 256]
 
-        for l, k, c, f in itertools.product(lr, kernel_sizes, conv_channels, filters_init_gains):
-            name = f"lr{l}_krn{k}_chn{c}_gain{f}"
+        for pr, lr in itertools.product(pretrain_runs, lr):
+            pr: Run
 
+            name = f"from_{pr.run_id}.lr{lr}"
             run = base_run.fork(run_id=name)
             run.parameters.update({
-                "lr": l,
-                "kernel_sizes": f"[{k}]",
-                "conv_channels": f"[{c}]",
-                "filters_init": f"KaimingUniformInitializer(gain={f})",
+                "lr": lr,
+                "load_params_from": (pr.path / "output" / run.run_id / "checkpoints" / "checkpoint_best.pt").as_posix(),
+                "kernel_sizes": pr.parameters["kernel_sizes"],
+                "conv_channels": pr.parameters["conv_channels"],
                 "work_dir": (run.path / "output").as_posix()
             })
             run.cmd.extend(["--name", name])

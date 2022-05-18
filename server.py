@@ -42,7 +42,7 @@ class Server:
         self._socket: zmq.asyncio.Socket = context.socket(zmq.REP)
         self._socket.bind(Config.SOCKET_ADDRESS)
 
-        self._event_loop = asyncio.new_event_loop()
+        self._event_loop = asyncio.get_event_loop()
         self._backend = Backend(Config.ROOT_DIR / "experiments", self._event_loop)
 
     @server_action

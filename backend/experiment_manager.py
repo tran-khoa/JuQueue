@@ -230,6 +230,7 @@ class ExperimentManager:
         logger.add(run.log_path / "juqueue.log", filter=lambda r: r.get("actor", None) == fut.key)
 
         # noinspection PyBroadException
+        return_code = "no return"
         try:
             return_code = await fut.result()
         except Exception as e:
@@ -257,20 +258,12 @@ class ExperimentManager:
                 logger.info(f"{run} finished.")
                 run.state.transition("finished")
             else:
-                surrender = (
-                    # if experiment failed too quickly
-                    (datetime.datetime.now() - run.last_run).seconds < self._experiment.fail_period
-                )
+                logger.warning(f"{run} considered failed.")
+                run.state.transition("failed")
 
-                if surrender:
-                    logger.warning(f"{run} considered failed.")
-                    run.state.transition("failed")
-                else:
-                    logger.info(f"Retrying {run}...")
-                    fut.retry()
-                exception = await fut.exception()
                 with open(run.log_path / "last_error.log", "wt") as logfile:
-                    if exception:
+                    if return_code != 0:
+                        exception = await fut.exception()
                         logfile.write(str(exception) + "\n")
                         traceback = await fut.traceback()
                         logfile.write("\n".join(traceback.format_tb(traceback)))
