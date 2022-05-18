@@ -95,7 +95,7 @@ class Experiment(BaseExperiment):
 
         # Sweep grid
         pretrain_runs = PretrainExperiment().runs
-        lr = [0.001, 0.0001, 0.00001]
+        lr = [0.001, 0.0001]
 
         for pr, lr in itertools.product(pretrain_runs, lr):
             pr: Run
@@ -110,7 +110,7 @@ class Experiment(BaseExperiment):
                 "work_dir": (run.path / "output").as_posix()
             })
             run.cmd.extend(["--name", name])
-            wandb_id = hashlib.sha224(name.encode("utf8")).hexdigest()[:24]
+            wandb_id = hashlib.sha224(run.global_id.encode("utf8")).hexdigest()[:24]
             run.env["WANDB_RUN_ID"] = wandb_id
 
             runs.append(run)

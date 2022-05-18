@@ -9,7 +9,7 @@ RunStatus = Literal['running', 'pending', 'moving', 'failed', 'cancelled', 'fini
 
 @dataclass
 class RunState:
-    status: RunStatus = 'pending'
+    status: RunStatus = 'cancelled'
     last_run: Optional[datetime] = None
     last_error: Optional[str] = None
     last_heartbeat: Optional[datetime] = None

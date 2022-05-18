@@ -6,13 +6,10 @@ from pathlib import Path
 from typing import Dict, List, Literal, Optional, Tuple
 
 from dask.distributed import Client, Future
-from distributed import Actor
 from loguru import logger
 from tornado.ioloop import IOLoop
-import traceback as tb
 
 
-from backend.utils import ExecutorActor
 from config import Config
 from entities.experiment import BaseExperiment
 from entities.run import Run
@@ -152,6 +149,10 @@ class ExperimentManager:
                     fut.cancel()
                     run.state.transition("cancelled")
                     run.save_to_disk()
+
+        clusters = {run.cluster for run in runs}
+        for cl in clusters:
+            await self._rescale_cluster(cl)
 
         return runs
 
