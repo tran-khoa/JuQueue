@@ -17,7 +17,7 @@ from .simclr_1layer import Experiment as PretrainExperiment
 class Experiment(BaseExperiment):
     @property
     def name(self) -> str:
-        return "simclr_1layer"
+        return "simclr_eval_1layer"
 
     @property
     def status(self) -> Literal['active', 'inactive']:
