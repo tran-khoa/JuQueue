@@ -144,8 +144,8 @@ class ExperimentManager:
                 fut = self._futures.get(run.run_id, False)
                 if fut:
                     fut.cancel()
-                    run.state.transition("cancelled")
-                    run.save_to_disk()
+                run.state.transition("cancelled")
+                run.save_to_disk()
 
         clusters = {run.cluster for run in runs}
         for cl in clusters:
