@@ -74,7 +74,7 @@ class Experiment(BaseExperiment):
                 "data_path": "/p/project/jinm60/users/tran4/datasets",
                 "wandb_project": "biasadapt",
                 "batch_size": 4096,
-                "log_frequency": 1000,
+                "log_frequency": 200,
                 "num_layers": 1,
                 "max_epochs": 100,
                 "data_workers": 1,

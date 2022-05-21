@@ -23,5 +23,6 @@ if __name__ == '__main__':
 
     for k, v in run.env.items():
         print(f"export {k}={v}")
+    print(f"mkdir -p {run.path}")
     print(f"cd {run.path}")
     print(f"{experiment.executor.create_script(run)}")
