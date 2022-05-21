@@ -76,7 +76,7 @@ class Experiment(BaseExperiment):
                 "batch_size": 4096,
                 "log_frequency": 1000,
                 "num_layers": 1,
-                "max_epochs": 20,
+                "max_epochs": 100,
                 "data_workers": 1,
                 "cleanup_checkpoints": True,
                 "gpu": True,
@@ -84,8 +84,9 @@ class Experiment(BaseExperiment):
             },
             parameter_format="eq",
             cluster="jureca-gpu",
-            cmd=["python3", "/p/project/jinm60/users/tran4/biasadapt_git/scripts/conv_biasfit/main.py", "emnist_simclr_bias",
-                 "start_finetune"],
+            cmd=["python3", "/p/project/jinm60/users/tran4/biasadapt_git/scripts/conv_biasfit/main.py",
+                 "emnist_simclr_bias_dp",
+                 "start"],
             experiment_name=self.name
         )
 

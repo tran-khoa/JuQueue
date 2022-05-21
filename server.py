@@ -69,17 +69,19 @@ class Server:
 
     @server_action
     async def resume_runs(self, experiment_name: str,
-                          run_id: str,
+                          run_ids: Union[str, List[str]],
                           states: Optional[List[Literal["failed", "cancelled", "finished"]]]) -> Response[List[Run]]:
         if experiment_name == ALL_EXPERIMENTS:
             return Response(success=False, reason=f"Cannot reset runs of all experiments at once (yet).")
         if experiment_name not in self._backend.experiment_names:
             return Response(success=False, reason=f"Unknown experiment {experiment_name}...")
 
-        if run_id == ALL_RUNS:
+        if run_ids == ALL_RUNS:
             runs = self._backend.managers[experiment_name].runs
+        elif not isinstance(run_ids, list):
+            runs = [self._backend.managers[experiment_name].run_by_id(run_ids)]
         else:
-            runs = [self._backend.managers[experiment_name].run_by_id(run_id)]
+            runs = [self._backend.managers[experiment_name].run_by_id(rid) for rid in run_ids]
 
         resumed_runs = await self._backend.managers[experiment_name].resume_runs(runs, states=states)
         return Response(success=True,

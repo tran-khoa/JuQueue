@@ -74,7 +74,7 @@ class ExperimentClient:
         if not states:
             print("No states selected.")
         else:
-            response = self.socket.execute("resume_runs", experiment_name=self.experiment_name, run_id=ALL_RUNS,
+            response = self.socket.execute("resume_runs", experiment_name=self.experiment_name, run_ids=ALL_RUNS,
                                            states=states)
 
             if response.success:
