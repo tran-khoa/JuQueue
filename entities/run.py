@@ -31,7 +31,7 @@ class Run:
     is_abstract: bool = False
 
     # State
-    state: RunState = RunState()
+    state: RunState = field(default_factory=lambda: RunState(), init=False)
 
     # Paths appended to PYTHONPATH
     python_search_path: List[str] = field(default_factory=list)

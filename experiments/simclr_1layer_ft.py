@@ -54,7 +54,7 @@ class Experiment(BaseExperiment):
 
     @property
     def num_jobs(self) -> Dict[str, int]:
-        return {"jureca-gpu": 48, "local": 0}
+        return {"jureca-gpu": 1, "local": 0}
 
     @property
     def runs(self) -> List[Run]:

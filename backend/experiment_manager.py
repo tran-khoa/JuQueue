@@ -123,6 +123,9 @@ class ExperimentManager:
                 states = ["failed", "cancelled"]
 
             for run in runs:
+                if run not in self._loaded_runs.values():
+                    logger.error(f"{run} is not part of experiment {self.experiment_name}!")
+                    continue
                 if run.status in states:
                     resumed_runs.append(run)
                     run.state.transition("pending")
