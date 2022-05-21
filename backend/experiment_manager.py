@@ -51,9 +51,6 @@ class ExperimentManager:
 
             await self.init_clusters(experiment)
 
-            # TODO allow force-reinit of cluster, stopping all running experiments
-            # TODO runs that have not been scheduled yet should be updateable, lock should stop queueing new runs
-
             # Detect and load runs
             ids_new = set()
             ids_updated = set()
@@ -231,7 +228,7 @@ class ExperimentManager:
         logger.add(run.log_path / "juqueue.log", filter=lambda r: r.get("actor", None) == fut.key)
 
         # noinspection PyBroadException
-        return_code = "no return"
+        return_code = "no return code"
         try:
             return_code = await fut.result()
         except Exception as e:
@@ -275,7 +272,7 @@ class ExperimentManager:
             run.save_to_disk()
 
     def _add_run(self, run: Run):
-        if run.status == 'pending':
+        if run.state.is_active():
             future = self._submit_run(run)
             run.state.last_run = datetime.datetime.now()
             run.save_to_disk()

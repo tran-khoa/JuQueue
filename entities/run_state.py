@@ -4,7 +4,7 @@ from typing import Literal, Dict, Any, Tuple, Optional
 
 from config import Config
 
-RunStatus = Literal['running', 'pending', 'moving', 'failed', 'cancelled', 'finished']
+RunStatus = Literal['running', 'pending', 'waiting', 'moving', 'failed', 'cancelled', 'finished']
 
 
 @dataclass
@@ -32,9 +32,12 @@ class RunState:
         self.last_error = None
         self.last_heartbeat = None
 
+    def is_active(self) -> bool:
+        return self.status in ('running', 'moving', 'waiting', 'pending')
+
     @property
     def persistable_status(self) -> Literal['pending', 'failed', 'cancelled', 'finished']:
-        if self.status in ['running', 'moving']:
+        if self.is_active():
             return "pending"
         return self.status
 

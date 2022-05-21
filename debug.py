@@ -15,7 +15,9 @@ if __name__ == '__main__':
     print("Experiment available as experiment variable.")
     experiment = mod.Experiment()
 
-    run = questionary.select("Choose a run:", [Choice(run.run_id, run) for run in experiment.runs]).ask()
+    runs = experiment.runs
+
+    run = questionary.select(f"Choose a run ({len(runs)} found):", [Choice(run.run_id, run) for run in runs]).ask()
 
     client = Client()
 
