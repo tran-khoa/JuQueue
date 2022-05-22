@@ -221,7 +221,6 @@ class ExperimentManager:
         if current_jobs != recommended_jobs:
             logger.info(f"Rescaling {name}(max_jobs={max_jobs}) from {current_jobs} to {recommended_jobs} jobs.")
             await client.cluster.scale(jobs=recommended_jobs)
-            await client.cluster._correct_state()
 
         return current_jobs, recommended_jobs
 
