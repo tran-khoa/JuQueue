@@ -73,7 +73,7 @@ class Experiment(BaseExperiment):
             parameters={
                 "data_path": "/p/project/jinm60/users/tran4/datasets",
                 "wandb_project": "biasadapt",
-                "batch_size": 4096,
+                "batch_size": 16384,
                 "log_frequency": 200,
                 "num_layers": 1,
                 "max_epochs": 100,
@@ -96,7 +96,7 @@ class Experiment(BaseExperiment):
 
         # Sweep grid
         pretrain_runs = PretrainExperiment().runs
-        lr = [0.1, 0.001, 0.0001]
+        lr = [0.0001, 1e-5, 1e-6]
 
         for pr, lr in itertools.product(pretrain_runs, lr):
             pr: Run

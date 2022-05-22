@@ -101,7 +101,7 @@ class ExperimentManager:
                     client = self._clients[name]
                     if client:
                         logger.info(f"Client '{name}' is being closed and reloaded...")
-                        client.close()
+                        await client.close()
 
             if cluster is not None:
                 if hasattr(cluster, "log_directory"):
@@ -146,7 +146,7 @@ class ExperimentManager:
             for run in runs:
                 fut = self._futures.get(run.run_id, False)
                 if fut:
-                    fut.cancel()
+                    await fut.cancel()
                 run.state.transition("cancelled")
                 run.save_to_disk()
 
@@ -168,7 +168,7 @@ class ExperimentManager:
         async with self._manager_lock:
             for fut in self._futures.values():
                 if fut:
-                    fut.cancel()
+                    await fut.cancel()
             for run in self._loaded_runs.values():
                 run.state.reset()
                 run.state.transition("cancelled")
@@ -221,6 +221,7 @@ class ExperimentManager:
         if current_jobs != recommended_jobs:
             logger.info(f"Rescaling {name}(max_jobs={max_jobs}) from {current_jobs} to {recommended_jobs} jobs.")
             await client.cluster.scale(jobs=recommended_jobs)
+            await client.cluster._correct_state()
 
         return current_jobs, recommended_jobs
 
@@ -296,7 +297,7 @@ class ExperimentManager:
 
     def _submit_run(self, run: Run) -> Future:
         client = self._clients[run.cluster]
-        fut = client.submit(self._experiment.executor.create(run),
+        fut = await client.submit(self._experiment.executor.create(run),
                             key=f"{self._experiment.name}@{run.run_id}",
                             resources={'slots': 1})
 
@@ -314,8 +315,8 @@ class ExperimentManager:
 
             for fut in self._futures.values():
                 if fut:
-                    fut.cancel()
+                    await fut.cancel()
 
             for cl in self._clients.values():
                 if cl:
-                    cl.close()
+                    await cl.close()
