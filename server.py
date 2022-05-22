@@ -43,8 +43,9 @@ class Server:
         self._socket: zmq.asyncio.Socket = context.socket(zmq.REP)
         self._socket.bind(Config.SOCKET_ADDRESS)
 
+        self._event_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self._event_loop)
         self._tornado_loop = IOLoop.current()
-        self._event_loop = asyncio.get_event_loop()
         self._backend = Backend(Config.ROOT_DIR / "experiments")
 
     @server_action

@@ -106,7 +106,7 @@ class ExperimentManager:
                     Path(cluster.log_directory).expanduser().mkdir(parents=True, exist_ok=True)
                 logger.info(f"Setting up cluster {name} with maximum_jobs={self._experiment.num_jobs[name]}")
                 logger.info(f"Cluster {name} dashboard address is {cluster.dashboard_link}")
-                cluster.loop = IOLoop.current()
+                #cluster.loop = IOLoop.current()
                 self._clients[name] = await Client(cluster, asynchronous=True)
                 await self._rescale_cluster(name)
             else:

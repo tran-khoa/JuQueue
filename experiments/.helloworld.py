@@ -20,7 +20,7 @@ class Experiment(BaseExperiment):
 
     @cached_property
     def clusters(self) -> Dict[str, Optional[Cluster]]:
-        return {"local": LocalCluster(processes=2, cores=4, memory='2GB')}
+        return {"local": LocalCluster(processes=2, cores=4, memory='2GB', asynchronous=True)}
 
     @property
     def num_jobs(self) -> Dict[str, int]:
