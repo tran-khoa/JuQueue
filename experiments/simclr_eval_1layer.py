@@ -105,7 +105,7 @@ class Experiment(BaseExperiment):
                 continue
             if pr.parameters["lr"] != 0.001:
                 continue
-            if pr.parameters["gain"] != "KaimingUniformInitializer(gain={0.3})":
+            if pr.parameters["filters_init"] != "KaimingUniformInitializer(gain={0.3})":
                 continue
             if pr.parameters["krn"] != "[7]":
                 continue
