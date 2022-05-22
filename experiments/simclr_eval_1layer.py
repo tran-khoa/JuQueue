@@ -105,6 +105,10 @@ class Experiment(BaseExperiment):
                 continue
             if pr.parameters["lr"] != 0.001:
                 continue
+            if pr.parameters["gain"] != "KaimingUniformInitializer(gain={0.3})":
+                continue
+            if pr.parameters["krn"] != "[7]":
+                continue
 
             name = f"from_{pr.run_id}.lr{lr}"
             run = base_run.fork(run_id=name)
