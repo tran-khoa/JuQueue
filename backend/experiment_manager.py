@@ -24,6 +24,7 @@ class ExperimentManager:
         self._loaded_runs: Dict[str, Run] = {}
         self._futures: Dict[str, Future] = {}
         self._clients: Dict[str, Client] = {}
+        self._pending_run_updates: Dict[str, asyncio.Future] = {}
 
         self._manager_lock = Lock()
 
@@ -68,7 +69,7 @@ class ExperimentManager:
                         logger.info(f"Updating existing run {run}...")
                         logger.warning(f"{run} has changed, this has not been implemented yet :/")
                         ids_updated.add(run.run_id)
-                        # self._update_run(run)
+                        self._update_run(run)
 
                     ids_deleted.remove(run.run_id)
                 else:
@@ -106,7 +107,6 @@ class ExperimentManager:
                     Path(cluster.log_directory).expanduser().mkdir(parents=True, exist_ok=True)
                 logger.info(f"Setting up cluster {name} with maximum_jobs={self._experiment.num_jobs[name]}")
                 logger.info(f"Cluster {name} dashboard address is {cluster.dashboard_link}")
-                #cluster.loop = IOLoop.current()
                 self._clients[name] = await Client(cluster, asynchronous=True)
                 await self._rescale_cluster(name)
             else:
@@ -290,7 +290,30 @@ class ExperimentManager:
             del self._futures[run.run_id]
 
     def _update_run(self, run: Run):
-        raise NotImplementedError()
+        if run.run_id in self._futures:
+            logger.info(f"{run} (probably) still running, will update later.")
+
+            if run.run_id in self._pending_run_updates and not self._pending_run_updates[run.run_id].done():
+                self._pending_run_updates[run.run_id].cancel()
+            self._pending_run_updates[run.run_id] = asyncio.create_task(self._update_run_later(run))
+        else:
+            self._loaded_runs[run.run_id] = run
+            if run.state.is_active():
+                future = self._submit_run(run)
+                run.state.last_run = datetime.datetime.now()
+                run.save_to_disk()
+                self._futures[run.run_id] = future
+
+    async def _update_run_later(self, run: Run):
+        await self._futures[run.run_id]
+
+        logger.info(f"{run} finished, will perform scheduled update.")
+        self._loaded_runs[run.run_id] = run
+        if run.state.is_active():
+            future = self._submit_run(run)
+            run.state.last_run = datetime.datetime.now()
+            run.save_to_disk()
+            self._futures[run.run_id] = future
 
     def _submit_run(self, run: Run) -> Future:
         client = self._clients[run.cluster]

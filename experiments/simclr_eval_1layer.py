@@ -76,7 +76,7 @@ class Experiment(BaseExperiment):
                 "batch_size": 16384,
                 "log_frequency": 200,
                 "num_layers": 1,
-                "max_epochs": 100,
+                "max_epochs": 50,
                 "data_workers": 1,
                 "cleanup_checkpoints": True,
                 "gpu": True,
@@ -96,7 +96,7 @@ class Experiment(BaseExperiment):
 
         # Sweep grid
         pretrain_runs = PretrainExperiment().runs
-        lr = [0.0001, 1e-5, 1e-6]
+        lr = [0.01, 0.001, 0.0001]
 
         for pr, lr in itertools.product(pretrain_runs, lr):
             pr: Run
@@ -104,8 +104,6 @@ class Experiment(BaseExperiment):
             if pr.parameters["conv_channels"] != "[128]":
                 continue
             if pr.parameters["lr"] != 0.001:
-                continue
-            if pr.parameters["filters_init"] != "KaimingUniformInitializer(gain=0.3)":
                 continue
             if pr.parameters["kernel_sizes"] != "[7]":
                 continue
