@@ -76,7 +76,7 @@ class ExperimentManager:
                 else:
                     logger.info(f"Found new run {run}...")
                     ids_new.add(run.run_id)
-                    self._add_run(run)
+                    await self._add_run(run)
 
             for run_id in ids_deleted:
                 run = self._loaded_runs[run_id]
@@ -132,7 +132,7 @@ class ExperimentManager:
                     run.state.last_run = datetime.datetime.now()
                     run.save_to_disk()
 
-                    self._futures[run.run_id] = self._submit_run(run)
+                    self._futures[run.run_id] = await self._submit_run(run)
 
             if resumed_runs:
                 clusters = {run.cluster for run in resumed_runs}
@@ -275,9 +275,9 @@ class ExperimentManager:
 
             run.save_to_disk()
 
-    def _add_run(self, run: Run):
+    async def _add_run(self, run: Run):
         if run.state.is_active():
-            future = self._submit_run(run)
+            future = await self._submit_run(run)
             run.state.last_run = datetime.datetime.now()
             run.save_to_disk()
             self._futures[run.run_id] = future
@@ -295,11 +295,11 @@ class ExperimentManager:
     def _update_run(self, run: Run):
         raise NotImplementedError()
 
-    def _submit_run(self, run: Run) -> Future:
+    async def _submit_run(self, run: Run) -> Future:
         client = self._clients[run.cluster]
         fut = await client.submit(self._experiment.executor.create(run),
-                            key=f"{self._experiment.name}@{run.run_id}",
-                            resources={'slots': 1})
+                                  key=f"{self._experiment.name}@{run.run_id}",
+                                  resources={'slots': 1})
 
         self._event_loop.create_task(self._handle_execution(fut), name=f"handle_execution_{run.global_id}")
 
