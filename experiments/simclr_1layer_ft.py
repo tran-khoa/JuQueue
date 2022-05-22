@@ -32,7 +32,7 @@ class Experiment(BaseExperiment):
                     project="jinm60",
                     cores=128,
                     memory="500G",
-                    interface="ib2",
+                    interface="ib0",
                     scheduler_options={'interface': 'ib0'},
                     local_directory="/p/scratch/jinm60/tran4/dask",
                     log_directory=(self.path / "slurm-logs").as_posix(),
