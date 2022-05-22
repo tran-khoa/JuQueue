@@ -107,7 +107,7 @@ class Experiment(BaseExperiment):
                 continue
             if pr.parameters["filters_init"] != "KaimingUniformInitializer(gain=0.3)":
                 continue
-            if pr.parameters["krn"] != "[7]":
+            if pr.parameters["kernel_sizes"] != "[7]":
                 continue
 
             name = f"from_{pr.run_id}.lr{lr}"
