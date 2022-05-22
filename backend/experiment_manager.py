@@ -9,7 +9,6 @@ from dask.distributed import Client, Future
 from loguru import logger
 from tornado.ioloop import IOLoop
 
-
 from config import Config
 from entities.experiment import BaseExperiment
 from entities.run import Run
@@ -132,7 +131,7 @@ class ExperimentManager:
                     run.state.last_run = datetime.datetime.now()
                     run.save_to_disk()
 
-                    self._futures[run.run_id] = await self._submit_run(run)
+                    self._futures[run.run_id] = self._submit_run(run)
 
             if resumed_runs:
                 clusters = {run.cluster for run in resumed_runs}
@@ -276,7 +275,7 @@ class ExperimentManager:
 
     async def _add_run(self, run: Run):
         if run.state.is_active():
-            future = await self._submit_run(run)
+            future = self._submit_run(run)
             run.state.last_run = datetime.datetime.now()
             run.save_to_disk()
             self._futures[run.run_id] = future
@@ -294,11 +293,11 @@ class ExperimentManager:
     def _update_run(self, run: Run):
         raise NotImplementedError()
 
-    async def _submit_run(self, run: Run) -> Future:
+    def _submit_run(self, run: Run) -> Future:
         client = self._clients[run.cluster]
-        fut = await client.submit(self._experiment.executor.create(run),
-                                  key=f"{self._experiment.name}@{run.run_id}",
-                                  resources={'slots': 1})
+        fut = client.submit(self._experiment.executor.create(run),
+                            key=f"{self._experiment.name}@{run.run_id}",
+                            resources={'slots': 1})
 
         self._event_loop.create_task(self._handle_execution(fut), name=f"handle_execution_{run.global_id}")
 
