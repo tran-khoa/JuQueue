@@ -19,7 +19,7 @@ class Experiment(BaseExperiment):
 
     @property
     def status(self) -> Literal['active', 'inactive']:
-        return "active"
+        return "inactive"
 
     @cached_property
     def clusters(self) -> Dict[str, Optional[Cluster]]:
