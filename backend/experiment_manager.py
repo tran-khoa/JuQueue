@@ -16,11 +16,10 @@ from entities.run import Run
 
 class ExperimentManager:
 
-    def __init__(self, experiment_name: str, event_loop: AbstractEventLoop):
+    def __init__(self, experiment_name: str):
         # noinspection PyTypeChecker
         self.experiment_name = experiment_name
 
-        self._event_loop = event_loop
         self._experiment: BaseExperiment = None
         self._loaded_runs: Dict[str, Run] = {}
         self._futures: Dict[str, Future] = {}
@@ -28,8 +27,8 @@ class ExperimentManager:
 
         self._manager_lock = Lock()
 
-        self._heartbeat_task = self._event_loop.create_task(self._heartbeat_coro())
-        self._rescale_task = self._event_loop.create_task(self._rescale_coro())
+        self._heartbeat_task = asyncio.create_task(self._heartbeat_coro())
+        self._rescale_task = asyncio.create_task(self._rescale_coro())
 
         self._closing = False
 
@@ -299,7 +298,7 @@ class ExperimentManager:
                             key=f"{self._experiment.name}@{run.run_id}",
                             resources={'slots': 1})
 
-        self._event_loop.create_task(self._handle_execution(fut), name=f"handle_execution_{run.global_id}")
+        asyncio.create_task(self._handle_execution(fut), name=f"handle_execution_{run.global_id}")
 
         return fut
 

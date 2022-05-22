@@ -1,6 +1,5 @@
 import asyncio
 import importlib
-from asyncio import AbstractEventLoop
 from pathlib import Path
 from typing import Dict, Union
 
@@ -11,13 +10,11 @@ from .experiment_manager import ExperimentManager
 
 
 class Backend:
-    _event_loop: AbstractEventLoop
     managers: Dict[str, ExperimentManager]
 
-    def __init__(self, experiments_path: Union[Path, str], event_loop: AbstractEventLoop):
+    def __init__(self, experiments_path: Union[Path, str]):
         self.experiments_path = Path(experiments_path)
         self.managers = {}
-        self._event_loop = event_loop
         self._backend_lock = asyncio.Lock()
 
         dask.config.set({"logging.distributed": "debug"})
@@ -36,7 +33,7 @@ class Backend:
                 xp: BaseExperiment = module.Experiment()
                 if xp.status == "active":
                     if xp.name not in self.managers:
-                        self.managers[xp.name] = ExperimentManager(xp.name, self._event_loop)
+                        self.managers[xp.name] = ExperimentManager(xp.name)
 
                     result = await self.managers[xp.name].load_experiment(xp)
                     results[xp.name] = result

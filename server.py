@@ -9,6 +9,7 @@ from typing import Dict, List, Literal, Optional, Set, Tuple, Union
 
 from loguru import logger
 import zmq.asyncio
+from tornado.ioloop import IOLoop
 
 from backend.backend import Backend
 from backend.utils import ALL_EXPERIMENTS, ALL_RUNS
@@ -42,8 +43,9 @@ class Server:
         self._socket: zmq.asyncio.Socket = context.socket(zmq.REP)
         self._socket.bind(Config.SOCKET_ADDRESS)
 
+        self._tornado_loop = IOLoop.current()
         self._event_loop = asyncio.get_event_loop()
-        self._backend = Backend(Config.ROOT_DIR / "experiments", self._event_loop)
+        self._backend = Backend(Config.ROOT_DIR / "experiments")
 
     @server_action
     async def get_experiments(self) -> Response[List[str]]:
@@ -148,7 +150,7 @@ class Server:
         print("Stopping server...")
         await self._backend.stop()
 
-        self._event_loop.stop()
+        self._tornado_loop.stop()
 
         PIDFILE.unlink(missing_ok=True)
         sys.exit(0)
@@ -161,14 +163,14 @@ class Server:
 
         self._event_loop.create_task(_init(), name="request_loop")
 
-        if os.environ.get("DEBUG", False):
-            logger.info("Event loop debugging activated.")
-            self._event_loop.set_debug(True)
+        #if os.environ.get("DEBUG", False):
+        #    logger.info("Event loop debugging activated.")
+        #    self._event_loop.set_debug(True)
 
         try:
-            self._event_loop.run_forever()
+            self._tornado_loop.start()
         finally:
-            self._event_loop.close()
+            self._tornado_loop.close()
 
     async def _handle_request(self, req) -> Response:
         req_dict = pickle.loads(req)
