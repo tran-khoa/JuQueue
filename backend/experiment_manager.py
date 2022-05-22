@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import shutil
 from asyncio import AbstractEventLoop, Lock
+from concurrent.futures import CancelledError
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Tuple
 
@@ -232,6 +233,8 @@ class ExperimentManager:
         return_code = "no return code"
         try:
             return_code = await fut.result()
+        except CancelledError:
+            status = 'cancelled'
         except Exception as e:
             logger.exception(f"Actor {fut.key} failed execution", actor=f"{fut.key}")
             run.state.last_error = str(e)
