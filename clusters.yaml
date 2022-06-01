@@ -1,0 +1,6 @@
+example_local:
+  type: local
+  cores: 4
+  memory: 2GB
+  max_jobs: 2
+  num_slots: 1

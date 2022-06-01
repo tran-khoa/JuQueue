@@ -1,9 +1,14 @@
+pyyaml
+
 dask_jobqueue
 dask
-prompt_toolkit
-dill
-questionary
-tableprint
-pyzmq
-loguru
 tornado
+
+loguru
+
+nest_asyncio
+
+# API
+fastapi
+hypercorn
+pydantic
