@@ -14,7 +14,6 @@ if typing.TYPE_CHECKING:
 from juqueue.backend.run_instance import RunInstance
 
 
-
 class ExperimentManager:
 
     def __init__(self, experiment_name: str, backend: Backend):
@@ -62,6 +61,8 @@ class ExperimentManager:
             ids_updated = set()
             ids_deleted = set(self._runs.keys())
 
+            affected_clusters = set()
+
             for run_def in self._def.runs:
                 errors = self.validate_run_def(run_def)
                 if errors:
@@ -76,6 +77,7 @@ class ExperimentManager:
                     if not run.load_from_disk():
                         run.save_to_disk()
                     ids_new.add(run_def.id)
+                    affected_clusters.add(run_def.cluster)
                     await self._add_run(run)
                 else:
                     run = self._runs[run_def.id]
@@ -84,6 +86,8 @@ class ExperimentManager:
                     else:
                         logger.info(f"Updating existing run {run_def}...")
                         ids_updated.add(run.id)
+                        affected_clusters.add(run.run_def.cluster)
+                        affected_clusters.add(run_def.cluster)
                         await self._update_run(run, run_def)
 
                     ids_deleted.remove(run_def.id)
@@ -91,7 +95,11 @@ class ExperimentManager:
             for run_id in ids_deleted:
                 run = self._runs[run_id]
                 logger.info(f"Removing run {run.run_def} from experiment.")
+                affected_clusters.add(run.run_def.cluster)
                 await self._delete_run(run)
+
+            for cluster_name in affected_clusters:
+                await self.get_cluster_manager(cluster_name).rescale()
 
         return {"new": ids_new, "updated": ids_updated, "deleted": ids_deleted}
 
@@ -102,10 +110,17 @@ class ExperimentManager:
                     raise ValueError(f"Experiment {self.experiment_name} has no run {rid}.")
 
             logger.info(f"Resuming runs {run_ids}...")
+            cms = {}
             for rid in run_ids:
                 run = self._runs[rid]
                 run.set_resuming()
-                await self.get_cluster_manager(run).add_run(run)
+
+                cm = self.get_cluster_manager(run)
+                cms[cm.cluster_name] = cm
+                await cm.add_run(run)
+
+            for cm in cms.values():
+                await cm.rescale()
 
     async def cancel_runs(self, run_ids: List[str], force: bool = False):
         async with self._lock:
@@ -114,9 +129,16 @@ class ExperimentManager:
                     raise ValueError(f"Experiment {self.experiment_name} has no run {rid}.")
 
             logger.info(f"Cancelling runs {run_ids}...")
+            cms = {}
             for rid in run_ids:
                 run = self._runs[rid]
+
+                cm = self.get_cluster_manager(run)
+                cms[cm.cluster_name] = cm
                 await self.get_cluster_manager(run).cancel_run(rid, force)
+
+            for cm in cms.values():
+                await cm.rescale()
 
     def get_cluster_manager(self, key: Union[RunDef, RunInstance, str]) -> ClusterManager:
         return self._backend.get_cluster_manager(key)
