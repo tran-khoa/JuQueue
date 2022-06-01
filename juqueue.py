@@ -29,7 +29,7 @@ class Server:
 
         self._tornado_loop = IOLoop.current()
 
-        self._hypercorn_config = Config()
+        self._hypercorn_config = Config.from_mapping({"bind": "0.0.0.0:51234"})
         self._api = FastAPI()
         for router in API_ROUTERS:
             self._api.include_router(router)
