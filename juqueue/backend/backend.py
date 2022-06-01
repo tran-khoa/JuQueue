@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import typing
 from typing import Dict, Union, Optional
 
 import dask
@@ -9,7 +10,8 @@ import yaml
 from loguru import logger
 
 from juqueue.definitions.cluster import create_cluster_def
-from juqueue.definitions.experiment import ExperimentDef
+if typing.TYPE_CHECKING:
+    from juqueue.definitions import ExperimentDef
 from juqueue.utils import CLUSTERS_YAML, EXPERIMENTS_DIR
 from juqueue.backend.clusters.cluster_manager import ClusterManager
 from juqueue.backend.experiments.experiment_manager import ExperimentManager

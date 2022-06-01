@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from loguru import logger
 
-from juqueue.backend import Backend
+from juqueue.backend.backend import Backend
 from juqueue.exceptions import NodeDeathError, NodeNotReadyError
 
 router = APIRouter(tags=["Cluster"])

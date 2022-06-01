@@ -2,7 +2,7 @@ import dataclasses
 
 from fastapi import APIRouter
 
-from juqueue.backend import Backend
+from juqueue.backend.backend import Backend
 
 
 router = APIRouter(tags=["Experiment"])

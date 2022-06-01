@@ -4,7 +4,7 @@ from loguru import logger
 from tornado.ioloop import IOLoop
 from fastapi import APIRouter
 
-from juqueue.backend import Backend
+from juqueue.backend.backend import Backend
 
 
 router = APIRouter(tags=["JuQueue"])

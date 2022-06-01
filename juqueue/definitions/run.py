@@ -50,7 +50,7 @@ class RunDef:
             self.path.mkdir(parents=True, exist_ok=True)
             self.log_path.mkdir(parents=True, exist_ok=True)
 
-    def fork(self, run_id: str) -> "RunDef":
+    def fork(self, run_id: str) -> RunDef:
         return RunDef(
             id=run_id,
             experiment_name=self.experiment_name,

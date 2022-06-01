@@ -18,14 +18,15 @@ from loguru import logger
 from juqueue.backend.clusters.run_schedule import RunSchedule
 from juqueue.backend.nodes import NodeManagerWrapper
 from juqueue.backend.run_instance import RunInstance
-from juqueue.definitions import RunDef
+
 from juqueue.definitions.cluster import ClusterDef
 from juqueue.utils import CancellationReason
 from juqueue.exceptions import NoSlotsError, NodeDeathError, NodeNotReadyError
 from juqueue.backend.clusters.utils import ExecutionResult
 
 if typing.TYPE_CHECKING:
-    from juqueue.backend import Backend
+    from juqueue.backend.backend import Backend
+    from juqueue.definitions import RunDef
 
 
 @total_ordering

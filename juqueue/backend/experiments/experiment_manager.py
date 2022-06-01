@@ -10,8 +10,9 @@ from juqueue.backend.clusters.cluster_manager import ClusterManager
 
 if typing.TYPE_CHECKING:
     from juqueue.backend.backend import Backend
+    from juqueue.definitions import ExperimentDef, RunDef
 from juqueue.backend.run_instance import RunInstance
-from juqueue.definitions import ExperimentDef, RunDef
+
 
 
 class ExperimentManager:
