@@ -48,6 +48,13 @@ class Executor(ExecutorDef):
         script.append(shlex.join(run.parsed_cmd))
         return "\n".join(script)
 
+    def create_virtual_script(self, run: RunDef, slots: List[int]) -> str:
+        lines = [f"cd {run.path.as_posix()}"]
+        for key, value in self.environment(run, slots).items():
+            lines.append(f"export {key}={value}")
+        lines.append(self.create_script(run))
+        return "\n".join(lines)
+
     async def execute(self, run: RunDef, slots: List[int]) -> int:
         run.path.mkdir(parents=True, exist_ok=True)
         run.log_path.mkdir(parents=True, exist_ok=True)
@@ -64,11 +71,7 @@ class Executor(ExecutorDef):
             stderr.flush()
 
             stdout.write(f"---------- {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ----------\n")
-            stdout.write(f"cd {path}\n")
-            for key, value in self.environment(run, slots).items():
-                stdout.write(f"export {key}={value}\n")
-            stdout.write(script)
-            stdout.write("\n-----------------------------------------\n")
+            stdout.write(self.create_virtual_script(run, slots))
             stdout.flush()
 
             with tempfile.NamedTemporaryFile("wt", delete=False) as run_file:
