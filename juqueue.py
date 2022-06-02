@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import argparse
 import asyncio
 import logging
@@ -19,6 +21,7 @@ from hypercorn.asyncio import Config
 
 PIDFILE = Path(__file__).parent / ".pid"  # TODO this does not work over network, use file locks!
 # TODO https://py-filelock.readthedocs.io/en/latest/index.html
+
 
 class Server:
     def __init__(self, def_path: Path, work_path: Path, debug: bool = False):
