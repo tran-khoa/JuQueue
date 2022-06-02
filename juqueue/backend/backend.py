@@ -3,7 +3,10 @@ from __future__ import annotations
 import asyncio
 import importlib
 import importlib.util
+import os
 import sys
+import threading
+import time
 from pathlib import Path
 import typing
 from typing import Dict, Union, Optional
@@ -51,11 +54,16 @@ class Backend:
             dask.config.set({"logging.distributed": "debug"})
 
     async def initialize(self):
-        logger.info("Loading clusters...")
-        await self.load_clusters()
-        logger.info("Loading experiments...")
-        await self.load_experiments()
-        logger.info("Backend initialized.")
+        try:
+            logger.info("Loading clusters...")
+            await self.load_clusters()
+            logger.info("Loading experiments...")
+            await self.load_experiments()
+            logger.info("Backend initialized.")
+        except:
+            logger.exception("Failed backend initialization!")
+            self.schedule_kill()
+            await self.stop()
 
     async def load_clusters(self):
         if not self.running:
@@ -149,3 +157,13 @@ class Backend:
             del self.experiment_managers, self.cluster_managers
             logger.info("Backend stopped.")
             self.running = False
+
+    def schedule_kill(self, delay: int = 5):
+        pid = os.getpid()
+
+        def _kill():
+            time.sleep(delay)
+            print(f"Killing JuQueue after {delay} seconds. Goodbye.")
+            os.system(f"kill -9 {pid}")
+
+        threading.Thread(target=_kill()).start()
