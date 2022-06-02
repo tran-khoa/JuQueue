@@ -65,7 +65,7 @@ class Executor(ExecutorDef):
 
             stdout.write(f"---------- {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ----------\n")
             stdout.write(f"cd {path}\n")
-            for key, value in env.items():
+            for key, value in self.environment(run, slots).items():
                 stdout.write(f"export {key}={value}\n")
             stdout.write(script)
             stdout.write("\n-----------------------------------------\n")
