@@ -15,6 +15,7 @@ import dask
 import yaml
 from loguru import logger
 
+from juqueue import get_backend, set_backend
 from juqueue.definitions.cluster import create_cluster_def
 if typing.TYPE_CHECKING:
     from juqueue.definitions import ExperimentDef
@@ -31,17 +32,18 @@ class Backend:
 
     @classmethod
     def instance(cls) -> Backend:
-        if cls._instance is None:
-            raise RuntimeError()
-        return cls._instance
+        return get_backend()
 
     @classmethod
-    def create(cls, definitions_path: Path, debug: bool = False) -> Backend:
-        cls._instance = Backend(definitions_path, debug)
-        return cls._instance
+    def create(cls, definitions_path: Path, work_path: Path, debug: bool = False) -> Backend:
+        backend = Backend(definitions_path, work_path, debug)
+        set_backend(backend)
+        return backend
 
-    def __init__(self, definitions_path: Path, debug: bool = False):
+    def __init__(self, definitions_path: Path, work_path: Path, debug: bool = False):
         self.definitions_path = definitions_path
+        self.work_path = work_path
+
         sys.path.insert(0, str(self.definitions_path))
 
         self.experiment_managers = {}

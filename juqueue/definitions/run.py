@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
-from juqueue.utils import WORK_DIR
+from juqueue import get_backend
 from juqueue.definitions.executor import ExecutorDef
 
 
@@ -39,11 +39,8 @@ class RunDef:
     # Executor
     executor: ExecutorDef = field(default_factory=lambda: ExecutorDef())
 
-    def __post_init__(self):
-        if not self.is_abstract:
-            # TODO move to instance
-            self.path.mkdir(parents=True, exist_ok=True)
-            self.log_path.mkdir(parents=True, exist_ok=True)
+    # Check heartbeat
+    check_heartbeat: bool = False
 
     @classmethod
     def create_abstract(cls, **kwargs) -> RunDef:
@@ -83,7 +80,7 @@ class RunDef:
 
     @property
     def path(self) -> Path:
-        return WORK_DIR / self.experiment_name / self.id
+        return get_backend().work_path / self.experiment_name / self.id
 
     @property
     def log_path(self) -> Path:

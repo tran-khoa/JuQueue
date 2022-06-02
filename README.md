@@ -48,7 +48,6 @@ or [localhost:51234/redoc](http://localhost:51234/redoc).
 - Adding heartbeats from process itself (by stdout, stderr)
 - Adding dependencies
 - Implement periodic health check as a safeguard (move away from NodeManagers)
-- Changeable work directory
 - Adding Resource system
 - Adding notifications API
 - Specify set of possible clusters for runs, with some prioritization system

@@ -26,6 +26,12 @@ class RunInstance:
     watcher: Optional[asyncio.Task] = None
     node: Optional[NodeManagerWrapper] = None
 
+    def __post_init__(self):
+        if self.run_def.is_abstract:
+            raise ValueError("Cannot instantiate an abstract run definition.")
+        self.run_def.path.mkdir(parents=True, exist_ok=True)
+        self.run_def.log_path.mkdir(parents=True, exist_ok=True)
+
     @property
     def global_id(self):
         return self.run_def.global_id

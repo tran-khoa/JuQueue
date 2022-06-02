@@ -13,7 +13,6 @@ from juqueue.exceptions import NoSlotsError
 if typing.TYPE_CHECKING:
     from juqueue.backend.run_instance import RunInstance
     from juqueue.definitions import RunDef
-from juqueue.utils import WORK_DIR
 from juqueue.backend.utils import CancellationReason
 
 
@@ -42,8 +41,10 @@ class NodeManagerInstance(NodeManager):
     runs: List[Optional[RunInstance]]
 
     def __init__(self, num_slots: int, name: str):
+        from juqueue.backend.backend import Backend
+
         logger.add(
-            WORK_DIR / "logs" / "worker.log",
+            Backend.instance().work_path / "logs" / "worker.log",
             rotation="1 day", compression="gz",
             format="{time} {level} {extra[name]} {extra[run_id]} {message}"
         )
