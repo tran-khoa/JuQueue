@@ -51,9 +51,15 @@ class NodeManagerInstance(NodeManager):
         self.num_slots = num_slots
 
         self.slots = [Slot(idx) for idx in range(num_slots)]
-        self.__lock = Lock()
+        self.__lock_instance = None
 
         logger.bind(name=name, run_id="@").info(f"Started JobActor on {self.node} with {num_slots} slots.")
+
+    @property
+    def _lock(self) -> Lock:
+        if self.__lock_instance is None:
+            self.__lock_instance = Lock()
+        return self.__lock_instance
 
     async def get_slots_info(self) -> List[Dict[str, Any]]:
         return [slot.info() for slot in self.slots]
@@ -67,7 +73,7 @@ class NodeManagerInstance(NodeManager):
         if num_slots != 1:
             raise NotImplementedError()
 
-        async with self.__lock:
+        async with self._lock:
             key = None
             for slot in self.slots:
                 if not slot.is_occupied:
@@ -90,6 +96,6 @@ class NodeManagerInstance(NodeManager):
         return success
 
     async def shutdown(self):
-        async with self.__lock:
+        async with self.__lock_instance:
             for slot in self.slots:
                 await slot.cancel(CancellationReason.WORKER_SHUTDOWN)

@@ -6,7 +6,7 @@ import typing
 import uuid
 from asyncio import Task
 from dataclasses import dataclass
-from typing import Optional, Dict, Any, Literal, Union
+from typing import Optional, Dict, Any, Literal, Union, List
 
 import dask.distributed
 from loguru import logger
@@ -58,7 +58,7 @@ class Slot:
         self.run_def = run_def
 
         key = f"{self.occupant}-{str(uuid.uuid4())}"
-        self.task = asyncio.create_task(self._execution_coro(key))
+        self.task = asyncio.create_task(self._execution_coro(key, slots=[self.index]))
 
         return key
 
@@ -68,12 +68,12 @@ class Slot:
             fut.put(ExecutionResult.pack("running"))
             await asyncio.sleep(60)
 
-    async def _execution_coro(self, key: str):
+    async def _execution_coro(self, key: str, slots: List[int]):
         fut = dask.distributed.Pub(key)
         heartbeat = asyncio.create_task(self._heartbeat_coro(key))
 
         try:
-            return_code = await asyncio.create_task(self.run_def.executor.execute(self.run_def))
+            return_code = await asyncio.create_task(self.run_def.executor.execute(self.run_def, slots))
 
             heartbeat.cancel()
             if return_code == 0:

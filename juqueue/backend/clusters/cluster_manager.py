@@ -273,9 +273,7 @@ class ClusterManager:
         """ Syncs actual running jobs to current state """
 
         # Check for dead actors
-        for idx, node in self._nodes.items():
-            if node.status == "dead":
-                del self._nodes[idx]
+        self._nodes = {idx: node for idx, node in self._nodes.items() if node.status != "dead"}
 
         # Update to current requested number of actors
         while len(self._nodes) < self._num_node_requested:
