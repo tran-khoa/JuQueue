@@ -23,7 +23,7 @@ async def get_clusters():
                 try:
                     node_infos[node.index]["slots"] = await node.get_slots_info()
                 except (NodeDeathError, NodeNotReadyError):
-                    pass
+                    node.mark_stopped()
                 except:
                     logger.exception(f"Could not obtain slots of node {node}.")
 
