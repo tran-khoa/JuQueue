@@ -135,7 +135,7 @@ class ExperimentManager:
 
                 cm = self.get_cluster_manager(run)
                 cms[cm.cluster_name] = cm
-                await self.get_cluster_manager(run).cancel_run(rid, force)
+                await self.get_cluster_manager(run).cancel_run(run.global_id, force)
 
             for cm in cms.values():
                 await cm.rescale()
