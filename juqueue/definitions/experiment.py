@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List
 
 
-from juqueue.utils import WORK_DIR
+from juqueue import get_backend
 from .run import RunDef
 
 
@@ -23,7 +23,7 @@ class ExperimentDef(ABC):
 
     @property
     def path(self) -> Path:
-        return WORK_DIR / Path(self.name)
+        return get_backend().work_path / Path(self.name)
 
     @property
     def fail_period(self) -> int:

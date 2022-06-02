@@ -3,7 +3,6 @@
 import argparse
 import asyncio
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -13,14 +12,14 @@ from tornado.ioloop import IOLoop
 
 from juqueue.api import API_ROUTERS
 from juqueue.backend.backend import Backend
-from juqueue.utils import WORK_DIR
 
+from filelock import FileLock, Timeout
 from fastapi import FastAPI
 from hypercorn.asyncio import serve
 from hypercorn.asyncio import Config
 
-PIDFILE = Path(__file__).parent / ".pid"  # TODO this does not work over network, use file locks!
-# TODO https://py-filelock.readthedocs.io/en/latest/index.html
+# Assumes the lock file is accessible over all nodes
+LOCK_FILE = Path(__file__).parent / ".lock"
 
 
 class Server:
@@ -48,6 +47,7 @@ class Server:
 
     async def _initialize(self):
         backend = Backend.create(definitions_path=self.def_path,
+                                 work_path=self.work_path,
                                  debug=self.debug)
         await backend.initialize()
 
@@ -72,43 +72,33 @@ if __name__ == '__main__':
 
     if not args.def_path.exists():
         raise FileNotFoundError(f"Definitions path {args.def_path} does not exist.")
+    args.work_path.mkdir(parents=True, exist_ok=True)
 
-    # TODO use work_path
+    lock = FileLock(LOCK_FILE, timeout=2)
+    try:
+        with lock:
+            # Setting up logging
+            log_path = args.work_path / "logs"
+            log_path.mkdir(exist_ok=True, parents=True)
 
-    WORK_DIR.mkdir(parents=True, exist_ok=True)
+            log_level = logging.INFO
+            if args.debug:
+                log_level = logging.DEBUG
 
-    if PIDFILE.exists():
-        with open(PIDFILE, 'r') as f:
-            pid = int(f.read().strip())
-            try:
-                os.kill(pid, 0)
-            except OSError:
-                pass
-            else:
-                print(f"Server is already running (pid {pid}), exiting...")
-                sys.exit(1)
+            logging.basicConfig(level=log_level)
 
-    with open(PIDFILE, 'w') as f:
-        f.write(str(os.getpid()))
+            logger.remove()
+            logger.add(sys.stderr, level=log_level)
+            logger.add((log_path / "server.log").as_posix(),
+                       format="{time} {level} {message}", rotation="1 day", compression="gz", level=log_level)
 
-    # Setting up logging
-    log_path = WORK_DIR / "logs"
-    log_path.mkdir(exist_ok=True, parents=True)
+            if args.debug:
+                logger.debug("Running in debug mode.")
 
-    log_level = logging.INFO
-    if args.debug:
-        log_level = logging.DEBUG
-
-    logging.basicConfig(level=log_level)
-
-    logger.remove()
-    logger.add(sys.stderr, level=log_level)
-    logger.add((log_path / "server.log").as_posix(),
-               format="{time} {level} {message}", rotation="1 day", compression="gz", level=log_level)
-
-    if args.debug:
-        logger.debug("Running in debug mode.")
-
-    # Start the server
-    server = Server(**vars(args))
-    server.start()
+            # Start the server
+            server = Server(**vars(args))
+            server.start()
+    except Timeout:
+        raise RuntimeError(f"JuQueue is already running, {LOCK_FILE} still locked!")
+    finally:
+        lock.release()
