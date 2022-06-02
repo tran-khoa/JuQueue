@@ -67,6 +67,9 @@ if __name__ == '__main__':
     parser.add_argument("--debug", action=argparse.BooleanOptionalAction, type=bool)
     args = parser.parse_args()
 
+    if not args.def_path.exists():
+        raise FileNotFoundError(f"Definitions path {args.def_path} does not exist.")
+
     # TODO use work_path
 
     WORK_DIR.mkdir(parents=True, exist_ok=True)
