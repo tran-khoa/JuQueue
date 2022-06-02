@@ -59,6 +59,7 @@ class RunDef:
         kwargs = dataclasses.asdict(self)
         kwargs["id"] = run_id
         kwargs["is_abstract"] = False
+        kwargs["executor"] = ExecutorDef(**kwargs["executor"])
 
         return RunDef(**kwargs)
 
