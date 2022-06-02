@@ -177,7 +177,7 @@ class ClusterManager:
             return True
 
     async def update_run(self, run: RunInstance, run_def: RunDef):
-        with self._scheduler_lock:
+        async with self._scheduler_lock:
             if run.status == "running":
                 await self._stop_run(run.global_id, CancellationReason.USER_CANCEL)
                 await self._run_queue.put(self._run_schedules[run.global_id])
