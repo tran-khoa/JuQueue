@@ -42,7 +42,7 @@ class Backend:
 
     def __init__(self, definitions_path: Path, debug: bool = False):
         self.definitions_path = definitions_path
-        sys.path.append(str(self.definitions_path))
+        sys.path.insert(0, str(self.definitions_path))
 
         self.experiment_managers = {}
         self.cluster_managers = {}
