@@ -23,14 +23,8 @@ class RunDef:
     # List of commands
     cmd: List[str]
 
-    # Additional environment variables
-    env: Dict[str, str] = field(default_factory=dict)
-
     # Abstract runs cannot be run, but forked
     is_abstract: bool = False
-
-    # Paths appended to PYTHONPATH
-    python_search_path: List[str] = field(default_factory=list)
 
     # Dictionary of parameters appended to cmd
     parameters: Dict[str, Any] = field(default_factory=dict)
@@ -50,6 +44,16 @@ class RunDef:
             # TODO move to instance
             self.path.mkdir(parents=True, exist_ok=True)
             self.log_path.mkdir(parents=True, exist_ok=True)
+
+    @classmethod
+    def create_abstract(cls, **kwargs) -> RunDef:
+        if any(x in kwargs for x in ("id", "is_abstract")):
+            raise ValueError("Cannot define id or is_abstract.")
+        return RunDef(
+            id="@abstract",
+            is_abstract=True,
+            **kwargs
+        )
 
     def fork(self, run_id: str) -> RunDef:
         kwargs = dataclasses.asdict(self)

@@ -9,7 +9,7 @@ import tempfile
 import typing
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from juqueue.definitions import ExecutorDef
 
@@ -25,13 +25,13 @@ class Executor(ExecutorDef):
         return dataclasses.replace(cls(), **dataclasses.asdict(executor_def))
 
     def environment(self, run: RunDef, slots: List[int]) -> Dict[str, str]:
-        env = run.env.copy()
+        env = self.env.copy()
 
         if self.cuda:
             env['CUDA_VISIBLE_DEVICES'] = ",".join(map(str, slots))
 
-        if run.python_search_path:
-            env['PYTHONPATH'] = env.get("PYTHONPATH", "") + ":" + ":".join(run.python_search_path)
+        if self.python_search_path:
+            env['PYTHONPATH'] = env.get("PYTHONPATH", "") + ":" + ":".join(self.python_search_path)
 
         env['RUN_ID'] = run.id
         env['EXPERIMENT_ID'] = run.experiment_name
