@@ -149,6 +149,7 @@ class Backend:
     async def stop(self):
         self.schedule_kill(delay=5)
 
+        logger.info("Stopping backend...")
         async with self._backend_lock:
             for em in self.experiment_managers.values():
                 logger.info(f"Stopping manager {em.experiment_name}")
