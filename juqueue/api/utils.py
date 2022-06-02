@@ -11,9 +11,8 @@ class SuccessResponse(BaseModel):
 
     @classmethod
     def from_exception(cls, ex: Exception) -> SuccessResponse:
-        message = str(ex.args[0]) if len(ex.args) > 0 else None
         return cls(success=False,
-                   reason=message)
+                   reason=repr(ex))
 
     @classmethod
     def with_success(cls) -> SuccessResponse:

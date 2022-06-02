@@ -3,6 +3,7 @@ import asyncio
 import logging
 import os
 import sys
+from pathlib import Path
 
 import nest_asyncio
 from loguru import logger
@@ -10,17 +11,17 @@ from tornado.ioloop import IOLoop
 
 from juqueue.api import API_ROUTERS
 from juqueue.backend.backend import Backend
-from juqueue.utils import ROOT_DIR, WORK_DIR
+from juqueue.utils import WORK_DIR
 
 from fastapi import FastAPI
 from hypercorn.asyncio import serve
 from hypercorn.asyncio import Config
 
-PIDFILE = ROOT_DIR / "server.pid"
+PIDFILE = Path(__file__).parent / "server.pid"
 
 
 class Server:
-    def __init__(self, debug: bool = False):
+    def __init__(self, def_path: Path, work_path: Path, debug: bool = False):
         self._event_loop = asyncio.new_event_loop()
         self._event_loop.set_debug(debug)
         asyncio.set_event_loop(self._event_loop)
@@ -34,6 +35,8 @@ class Server:
         for router in API_ROUTERS:
             self._api.include_router(router)
 
+        self.def_path = def_path
+        self.work_path = work_path
         self.debug = debug
 
     def handle_exception(self, _, context):
@@ -41,7 +44,9 @@ class Server:
         logger.error(f"Caught exception: {msg}")
 
     async def _initialize(self):
-        await Backend.instance(debug=self.debug).initialize()
+        backend = Backend.create(definitions_path=self.def_path,
+                                 debug=self.debug)
+        await backend.initialize()
 
         # noinspection PyTypeChecker
         await serve(self._api, self._hypercorn_config)
@@ -57,8 +62,12 @@ class Server:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument("--def-path", type=Path, default=Path(__file__).parent / "defs")
+    parser.add_argument("--work-path", type=Path, default=Path(__file__).parent / "work")
     parser.add_argument("--debug", action=argparse.BooleanOptionalAction, type=bool)
     args = parser.parse_args()
+
+    # TODO use work_path
 
     WORK_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -95,5 +104,5 @@ if __name__ == '__main__':
         logger.debug("Running in debug mode.")
 
     # Start the server
-    server = Server(args.debug)
+    server = Server(**vars(args))
     server.start()

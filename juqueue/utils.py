@@ -8,7 +8,4 @@ class CancellationReason(str, Enum):
     USER_CANCEL = "user"
 
 
-ROOT_DIR: Path = Path(__file__).parent.parent
-WORK_DIR: Path = ROOT_DIR / "work"
-EXPERIMENTS_DIR: Path = ROOT_DIR / "experiments"
-CLUSTERS_YAML: Path = ROOT_DIR / "clusters.yaml"
+WORK_DIR: Path = Path(__file__).parent.parent / "work"

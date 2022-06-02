@@ -126,6 +126,7 @@ class ClusterManager:
         async with self._scheduler_lock:
             if self._cluster_def and force_reload:
                 logger.info(f"Cluster '{self.cluster_name}' is being closed and reloaded...")
+                # TODO cancel runs gracefully first!
                 self._client.close()
                 self._cluster.close()
 

@@ -42,7 +42,7 @@ class RunDef:
     depends_on: Optional[List[RunDef]] = field(default_factory=list)
 
     # Executor
-    executor: Executor = field(default_factory=lambda: Executor(), metadata={"serializable": False})
+    executor: Executor = field(default_factory=lambda: Executor())
 
     def __post_init__(self):
         if not self.is_abstract:
@@ -95,22 +95,3 @@ class RunDef:
     @property
     def metadata_path(self) -> Path:
         return self.path / "juqueue-run.json"
-
-    def __eq__(self, other):
-        if not isinstance(other, RunDef):
-            return False
-
-        fields = [
-            "run_id",
-            "experiment_name",
-            "cluster",
-            "cmd",
-            "env",
-            "is_abstract",
-            "parameters",
-            "parameter_format",
-            "python_search_path"
-        ]
-
-        return all(getattr(self, f) == getattr(other, f) for f in fields)
-

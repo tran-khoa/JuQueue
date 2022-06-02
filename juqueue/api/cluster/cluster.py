@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from loguru import logger
 
+from juqueue.api.utils import SuccessResponse
 from juqueue.backend.backend import Backend
 from juqueue.exceptions import NodeDeathError, NodeNotReadyError
 
@@ -32,3 +33,13 @@ async def get_clusters():
         }
 
     return result
+
+
+@router.get("/clusters/{cluster_name}/rescale")
+async def rescale_cluster(cluster_name: str):
+    try:
+        await Backend.instance().get_cluster_manager(cluster_name).rescale()
+    except Exception as ex:
+        return SuccessResponse.from_exception(ex)
+    else:
+        return SuccessResponse.with_success()

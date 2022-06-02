@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import importlib.util
+import sys
+from pathlib import Path
 import typing
 from typing import Dict, Union, Optional
 
@@ -12,7 +15,6 @@ from loguru import logger
 from juqueue.definitions.cluster import create_cluster_def
 if typing.TYPE_CHECKING:
     from juqueue.definitions import ExperimentDef
-from juqueue.utils import CLUSTERS_YAML, EXPERIMENTS_DIR
 from juqueue.backend.clusters.cluster_manager import ClusterManager
 from juqueue.backend.experiments.experiment_manager import ExperimentManager
 from .run_instance import RunInstance
@@ -25,12 +27,20 @@ class Backend:
     cluster_managers: Dict[str, ClusterManager]
 
     @classmethod
-    def instance(cls, debug: bool = False):
+    def instance(cls) -> Backend:
         if cls._instance is None:
-            cls._instance = Backend(debug)
+            raise RuntimeError()
         return cls._instance
 
-    def __init__(self, debug: bool = False):
+    @classmethod
+    def create(cls, definitions_path: Path, debug: bool = False) -> Backend:
+        cls._instance = Backend(definitions_path, debug)
+        return cls._instance
+
+    def __init__(self, definitions_path: Path, debug: bool = False):
+        self.definitions_path = definitions_path
+        sys.path.append(str(self.definitions_path))
+
         self.experiment_managers = {}
         self.cluster_managers = {}
         self.running = True
@@ -51,10 +61,12 @@ class Backend:
         if not self.running:
             return
         async with self._backend_lock:
-            if not CLUSTERS_YAML.exists():
-                raise FileNotFoundError(f"{CLUSTERS_YAML} does not exist!")
+            yaml_path = self.definitions_path / "clusters.yaml"
 
-            with CLUSTERS_YAML.open("r") as yaml_file:
+            if not yaml_path.exists():
+                raise FileNotFoundError(f"{yaml_path} does not exist!")
+
+            with yaml_path.open("r") as yaml_file:
                 class_defs = yaml.safe_load(yaml_file)
 
             for name, kwargs in class_defs.items():
@@ -87,8 +99,12 @@ class Backend:
         async with self._backend_lock:
             importlib.invalidate_caches()
 
+            experiments_path = self.definitions_path / "experiments"
+            if not experiments_path.exists():
+                raise FileNotFoundError(f"{experiments_path} does not exist!")
+
             results = {}
-            for file in EXPERIMENTS_DIR.glob("*.py"):
+            for file in experiments_path.glob("*.py"):
                 if file.name.startswith(".") or file.name.startswith("_"):
                     continue
                 try:
