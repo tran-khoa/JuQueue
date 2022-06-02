@@ -62,7 +62,6 @@ class Backend:
             logger.info("Backend initialized.")
         except:
             logger.exception("Failed backend initialization!")
-            self.schedule_kill()
             await self.stop()
 
     async def load_clusters(self):
@@ -148,6 +147,8 @@ class Backend:
         return cm
 
     async def stop(self):
+        self.schedule_kill(delay=5)
+
         async with self._backend_lock:
             for em in self.experiment_managers.values():
                 logger.info(f"Stopping manager {em.experiment_name}")
