@@ -3,7 +3,7 @@ from __future__ import annotations
 import typing
 
 if typing.TYPE_CHECKING:
-    from juqueue.utils import CancellationReason
+    from juqueue.backend.utils import CancellationReason
     from juqueue.definitions import RunDef
 
 

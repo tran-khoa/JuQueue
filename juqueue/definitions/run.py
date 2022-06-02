@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
 from juqueue.utils import WORK_DIR
-from juqueue.backend.nodes import Executor
+from juqueue.definitions.executor import ExecutorDef
 
 
 @dataclass(unsafe_hash=True)
@@ -42,7 +43,7 @@ class RunDef:
     depends_on: Optional[List[RunDef]] = field(default_factory=list)
 
     # Executor
-    executor: Executor = field(default_factory=lambda: Executor())
+    executor: ExecutorDef = field(default_factory=lambda: ExecutorDef())
 
     def __post_init__(self):
         if not self.is_abstract:
@@ -51,17 +52,11 @@ class RunDef:
             self.log_path.mkdir(parents=True, exist_ok=True)
 
     def fork(self, run_id: str) -> RunDef:
-        return RunDef(
-            id=run_id,
-            experiment_name=self.experiment_name,
-            cluster=self.cluster,
-            cmd=list(self.cmd),
-            env=dict(self.env),
-            parameters=dict(self.parameters),
-            parameter_format=self.parameter_format,
-            python_search_path=self.python_search_path,
-            depends_on=self.depends_on
-        )
+        kwargs = dataclasses.asdict(self)
+        kwargs["id"] = run_id
+        kwargs["is_abstract"] = False
+
+        return RunDef(**kwargs)
 
     @property
     def global_id(self) -> str:

@@ -1,2 +1,1 @@
-from .definitions import RunDef, ExperimentDef
-from .backend.nodes.executor import Executor
+from .definitions import RunDef, ExperimentDef, ExecutorDef

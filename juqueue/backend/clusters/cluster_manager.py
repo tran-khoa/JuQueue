@@ -20,7 +20,7 @@ from juqueue.backend.nodes import NodeManagerWrapper
 from juqueue.backend.run_instance import RunInstance
 
 from juqueue.definitions.cluster import ClusterDef
-from juqueue.utils import CancellationReason
+from juqueue.backend.utils import CancellationReason
 from juqueue.exceptions import NoSlotsError, NodeDeathError, NodeNotReadyError
 from juqueue.backend.clusters.utils import ExecutionResult
 

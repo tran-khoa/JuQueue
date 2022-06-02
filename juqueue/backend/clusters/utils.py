@@ -12,9 +12,10 @@ import dask.distributed
 from loguru import logger
 import pickle
 
+from juqueue.backend.nodes import Executor
 
 if typing.TYPE_CHECKING:
-    from juqueue.utils import CancellationReason
+    from juqueue.backend.utils import CancellationReason
     from juqueue.definitions import RunDef
 
 
@@ -73,7 +74,8 @@ class Slot:
         heartbeat = asyncio.create_task(self._heartbeat_coro(key))
 
         try:
-            return_code = await asyncio.create_task(self.run_def.executor.execute(self.run_def, slots))
+            executor = Executor.from_def(self.run_def.executor)
+            return_code = await asyncio.create_task(executor.execute(self.run_def, slots))
 
             heartbeat.cancel()
             if return_code == 0:

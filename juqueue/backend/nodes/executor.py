@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import datetime
 import os
 import shlex
@@ -10,15 +11,18 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from juqueue.definitions import ExecutorDef
+
 if typing.TYPE_CHECKING:
     from juqueue.definitions import RunDef
 
 
 @dataclass
-class Executor:
-    venv: Path = None
-    prepend_script: Optional[List[str]] = None
-    cuda: bool = False
+class Executor(ExecutorDef):
+
+    @classmethod
+    def from_def(cls, executor_def: ExecutorDef):
+        return dataclasses.replace(cls(), **dataclasses.asdict(executor_def))
 
     def environment(self, run: RunDef, slots: List[int]) -> Dict[str, str]:
         env = run.env.copy()
@@ -40,7 +44,7 @@ class Executor:
         if self.prepend_script:
             script.extend(self.prepend_script)
         if self.venv:
-            script.append(f". {(self.venv / 'bin' / 'activate').as_posix()}")
+            script.append(f". {str(Path(self.venv) / 'bin' / 'activate')}")
         script.append(shlex.join(run.parsed_cmd))
         return "\n".join(script)
 

@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 from typing import List
 
-from juqueue import Executor
-from juqueue.definitions import ExperimentDef, RunDef
+from juqueue import ExperimentDef, RunDef, ExecutorDef
 
 
 @dataclass
@@ -19,7 +18,7 @@ class Experiment(ExperimentDef):
             RunDef("python", self.name,
                    cmd=["python", "-V"],
                    cluster="example_local",
-                   executor=Executor(
+                   executor=ExecutorDef(
                        prepend_script=["module load Python/3.9.6"]
                    )),
         ]

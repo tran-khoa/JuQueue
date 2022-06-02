@@ -13,7 +13,8 @@ from juqueue.exceptions import NoSlotsError
 if typing.TYPE_CHECKING:
     from juqueue.backend.run_instance import RunInstance
     from juqueue.definitions import RunDef
-from juqueue.utils import WORK_DIR, CancellationReason
+from juqueue.utils import WORK_DIR
+from juqueue.backend.utils import CancellationReason
 
 
 class NodeManager(Protocol):

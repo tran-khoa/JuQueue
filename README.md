@@ -2,16 +2,16 @@
 work in progress
 
 ## TODO
+- Adding Resource system
 - Adding heartbeats from process itself
 - Adding dependencies
-- Run actors instead of tasks
-- Split clusters from experiments
+- Changeable work directory
 - Add per-cluster core-h accounting function
 - Adding notifications API
 - Add web uis
 
 ## Scheduling Priority
-- Run-specific priority
-- Experiment-specific priority
-- (Predicted runtime)
-- Last run
+- (TODO) Run-specific priority
+- (TODO) Experiment-specific priority
+- (TODO) Expected runtime
+- First scheduled
