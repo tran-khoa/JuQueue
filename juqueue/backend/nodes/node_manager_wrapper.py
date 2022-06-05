@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import asyncio
-import typing
-from asyncio import Event, FIRST_COMPLETED
-from dask.distributed import Actor
+import concurrent.futures
 import functools
-from typing import Literal, Union, Optional
+import typing
+from asyncio import Event, FIRST_COMPLETED, Task
+from typing import Literal, Optional, Union
 
+from dask.distributed import Actor
 from loguru import logger
 
 from juqueue.exceptions import NodeDeathError, NodeNotReadyError
-from .node_manager import NodeManagerInstance, NodeManager
+from .node_manager import NodeManager, NodeManagerInstance
 
 if typing.TYPE_CHECKING:
     from juqueue.backend.clusters.cluster_manager import ClusterManager
@@ -71,7 +72,7 @@ class NodeManagerWrapper(NodeManager):
     def mark_stopped(self):
         self._stopped.set()
 
-    async def shutdown(self):
+    async def request_shutdown(self):
         if self.instance is None:
             return
 
@@ -79,10 +80,6 @@ class NodeManagerWrapper(NodeManager):
             task = self.instance
             task.cancel()
             await task  # in rare conditions, self.instance could now be an Actor
-
-        if isinstance(self.instance, Actor):
-            self.instance: NodeManager
-            await self.instance.shutdown()
 
         self.mark_stopped()
 
@@ -94,9 +91,10 @@ class NodeManagerWrapper(NodeManager):
             actor = await self.cluster_manager.dask_client.submit(NodeManagerInstance,
                                                                   name=f"NodeManager-{self.name}",
                                                                   num_slots=self.cluster_manager.num_slots,
+                                                                  work_path=self.cluster_manager.work_path,
                                                                   actor=True,
                                                                   key=f"NodeManager-{self.name}")
-        except asyncio.CancelledError:
+        except (asyncio.CancelledError, concurrent.futures.CancelledError):
             logger.info(f"Cancelling creation of NodeManager {self.name}.")
             self.instance = None
         except:
@@ -148,9 +146,13 @@ class NodeManagerWrapper(NodeManager):
                 async def f():
                     done, _ = await asyncio.wait([actor_future, self._task_actor_death], return_when=FIRST_COMPLETED)
                     if self._task_actor_death in done:
+                        self.mark_stopped()
                         raise NodeDeathError()
+                    result: Task = done.pop()
+                    if result.exception():
+                        raise result.exception()
 
-                    return done.pop().result()
+                    return result.result()
 
                 return asyncio.create_task(f())
 

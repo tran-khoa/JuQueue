@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import asyncio
-import dataclasses
 import datetime
 import os
 import shlex
 import tempfile
 import typing
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List
 
@@ -17,12 +15,16 @@ if typing.TYPE_CHECKING:
     from juqueue.definitions import RunDef
 
 
-@dataclass
 class Executor(ExecutorDef):
 
+    work_dir: Path
+
     @classmethod
-    def from_def(cls, executor_def: ExecutorDef):
-        return dataclasses.replace(cls(), **dataclasses.asdict(executor_def))
+    def from_def(cls, executor_def: ExecutorDef, work_dir: Path):
+        return cls.parse_obj({
+            "work_dir": work_dir,
+            **executor_def.dict()
+        })
 
     def environment(self, run: RunDef, slots: List[int]) -> Dict[str, str]:
         env = self.env.copy()
@@ -45,33 +47,32 @@ class Executor(ExecutorDef):
             script.extend(self.prepend_script)
         if self.venv:
             script.append(f". {str(Path(self.venv) / 'bin' / 'activate')}")
-        script.append(shlex.join(run.parsed_cmd))
+        script.append(shlex.join(run.parsed_cmd(work_dir=self.work_dir)))
         return "\n".join(script)
 
     def create_virtual_script(self, run: RunDef, slots: List[int]) -> str:
-        lines = [f"cd {run.path.as_posix()}"]
+        lines = [f"cd {run.path.contextualize(self).as_posix()}"]
         for key, value in self.environment(run, slots).items():
             lines.append(f"export {key}={value}")
         lines.append(self.create_script(run))
         return "\n".join(lines)
 
     async def execute(self, run: RunDef, slots: List[int]) -> int:
-        run.path.mkdir(parents=True, exist_ok=True)
-        run.log_path.mkdir(parents=True, exist_ok=True)
-
         script = self.create_script(run)
 
         env = os.environ.copy()
         env.update(self.environment(run, slots))
 
-        path = run.path.as_posix()
+        path = run.path.contextualize(self)
 
-        with (run.log_path / "stdout.log").open("at") as stdout, (run.log_path / "stderr.log").open("at") as stderr:
+        log_path = run.log_path.contextualize(self)
+
+        with (log_path / "stdout.log").open("at") as stdout, (log_path / "stderr.log").open("at") as stderr:
             stderr.write(f"---------- {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ----------\n")
             stderr.flush()
 
             stdout.write(f"---------- {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ----------\n")
-            stdout.write(self.create_virtual_script(run, slots))
+            stdout.write(self.create_virtual_script(run, slots) + "\n")
             stdout.flush()
 
             with tempfile.NamedTemporaryFile("wt", delete=False) as run_file:

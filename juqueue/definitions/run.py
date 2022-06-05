@@ -1,46 +1,68 @@
 from __future__ import annotations
 
-import dataclasses
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Dict, List, Literal, Union
 
-from juqueue import get_backend
+from pydantic import BaseModel, Field
+
 from juqueue.definitions.executor import ExecutorDef
+from juqueue.definitions.path import PathDef, PathVars
 
 
-@dataclass(unsafe_hash=True)
-class RunDef:
-    # Run identifier, unique inside the respective experiment, equal for runs with the same hyperparameters
-    id: str
+class PathVar:
+    pass
 
-    # Experiment name
-    experiment_name: str
 
-    # Name of cluster to run on
-    cluster: str
+class RunDef(BaseModel):
+    """
+    Defines the execution of a run.
+    """
 
-    # List of commands
-    cmd: List[str]
+    id: str = Field(
+        description="Uniquely identifies a run inside an experiment. Use global_id outside the scope of an experiment."
+    )
 
-    # Abstract runs cannot be run, but forked
-    is_abstract: bool = False
+    experiment_name: str = Field(
+        description="The experiment this run belongs to."
+    )
 
-    # Dictionary of parameters appended to cmd
-    parameters: Dict[str, Any] = field(default_factory=dict)
+    cluster: str = Field(
+        description="The cluster this run should run on, as defined in clusters.yaml."
+    )
 
-    # Format of the appended parameter (argparse: --key value, eq: k=v)
-    parameter_format: Literal['argparse', 'eq'] = 'argparse'
+    cmd: List[str] = Field(
+        description="The command to be executed, as a list."
+    )
 
-    # Execute this run only if the specified runs are finished
-    # TODO implement
-    depends_on: Optional[List[RunDef]] = field(default_factory=list)
+    parameters: Dict[str, Union[str, int, float, bool, PathDef, Path, bytes]] = Field(
+        default_factory=dict,
+        description="Parameters appended to the specified command. Formatting determined by parameter_format."
+    )
 
-    # Executor
-    executor: ExecutorDef = field(default_factory=lambda: ExecutorDef())
+    parameter_format: Literal['argparse', 'eq'] = Field(
+        default='argparse',
+        description="'argparse' formats the parameters as --key value, 'eq' as key=value."
+    )
 
-    # Check heartbeat
-    check_heartbeat: bool = False
+    depends_on: List[RunDef] = Field(
+        default_factory=list,
+        description="Not implemented yet."
+    )
+
+    executor: ExecutorDef = Field(
+        default_factory=lambda: ExecutorDef(),
+        description="Specifies the execution environment the command is run in. Refer to ExecutorDef."
+    )
+
+    check_heartbeat: bool = Field(
+        default=False,
+        description="Not implemented yet."
+    )
+
+    is_abstract: bool = Field(
+        default=False,
+        description="Abstract runs are created as a template for other runs, but cannot be executed themselves."
+    )
 
     @classmethod
     def create_abstract(cls, **kwargs) -> RunDef:
@@ -53,12 +75,12 @@ class RunDef:
         )
 
     def fork(self, run_id: str) -> RunDef:
-        kwargs = dataclasses.asdict(self)
-        kwargs["id"] = run_id
-        kwargs["is_abstract"] = False
-        kwargs["executor"] = ExecutorDef(**kwargs["executor"])
+        copy = self.copy(deep=True, update={
+            "id": run_id,
+            "is_abstract": False
+        })
 
-        return RunDef(**kwargs)
+        return copy
 
     @property
     def global_id(self) -> str:
@@ -66,10 +88,12 @@ class RunDef:
             return "@abstract_run"
         return f"{self.experiment_name}@{self.id}"
 
-    @property
-    def parsed_cmd(self) -> List[str]:
+    def parsed_cmd(self, work_dir: Path, **kwargs) -> List[str]:
         cmd = list(self.cmd)
         for key, value in self.parameters.items():
+            if isinstance(value, PathDef):
+                value = value.contextualize(work_dir=work_dir, **kwargs)
+
             if self.parameter_format == "argparse":
                 cmd.extend([f"--{key}", str(value)])
             elif self.parameter_format == "eq":
@@ -79,16 +103,16 @@ class RunDef:
         return cmd
 
     @property
-    def path(self) -> Path:
-        return get_backend().work_path / self.experiment_name / self.id
+    def path(self) -> PathDef:
+        return PathVars.WORK_DIR / self.experiment_name / self.id
 
     @property
-    def log_path(self) -> Path:
+    def log_path(self) -> PathDef:
         return self.path / "logs"
 
-    def __repr__(self):
+    def __str__(self):
         return f"RunDef(uid={self.id}, experiment={self.experiment_name})"
 
     @property
-    def metadata_path(self) -> Path:
+    def metadata_path(self) -> PathDef:
         return self.path / "juqueue-run.json"

@@ -13,9 +13,9 @@ class Experiment(ExperimentDef):
     @property
     def runs(self) -> List[RunDef]:
         return [
-            RunDef("helloworld", self.name, cmd=["echo", "Hello world!"], cluster="example_local"),
-            RunDef("helloworld2", self.name, cmd=["sleep", "6000"], cluster="example_local"),
-            RunDef("python", self.name,
+            RunDef(id="helloworld", experiment_name=self.name, cmd=["echo", "Hello world!"], cluster="example_local"),
+            RunDef(id="helloworld2", experiment_name=self.name, cmd=["sleep", "6000"], cluster="example_local"),
+            RunDef(id="python", experiment_name=self.name,
                    cmd=["python", "-V"],
                    cluster="example_local",
                    executor=ExecutorDef(

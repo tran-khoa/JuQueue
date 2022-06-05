@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List
 
-
 from juqueue import get_backend
 from .run import RunDef
 
@@ -30,5 +29,5 @@ class ExperimentDef(ABC):
         """If run exits after N (default: 5) seconds with non-zero status code, consider run failed"""
         return 5
 
-    def __repr__(self):
+    def __str__(self):
         return f"Experiment(name={self.name})"
