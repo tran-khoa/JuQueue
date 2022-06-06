@@ -1,14 +1,14 @@
-from dataclasses import dataclass, field
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 
-@dataclass
-class ExecutorDef:
+class ExecutorDef(BaseModel):
     # Additional environment variables
-    env: Dict[str, str] = field(default_factory=dict)
+    env: Dict[str, str] = Field(default_factory=dict)
 
     # Paths appended to PYTHONPATH
-    python_search_path: List[str] = field(default_factory=list)
+    python_search_path: List[str] = Field(default_factory=list)
 
     # Path to virtual environment
     venv: Optional[str] = None

@@ -1,15 +1,16 @@
-pyyaml
+pyyaml~=6.0
 
 dask_jobqueue
-dask
-tornado
+dask~=2022.5.2
+tornado~=6.1
 
-loguru
+loguru~=0.6.0
 
 nest_asyncio
 filelock
 
 # API
-fastapi
-hypercorn
-pydantic
+fastapi~=0.78.0
+hypercorn~=0.13.2
+pydantic~=1.9.1
+uvloop~=0.16.0

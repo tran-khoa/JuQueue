@@ -6,18 +6,27 @@ if typing.TYPE_CHECKING:
     from backend.backend import Backend
 
 
-_backend = None
+class BackendInstance:
+    backend: Backend = None
 
+    @classmethod
+    def ready(cls) -> bool:
+        return cls.backend is not None
 
-def set_backend(backend: Backend):
-    global _backend
-    _backend = backend
+    @classmethod
+    def get(cls) -> Backend:
+        if cls.backend is None:
+            raise RuntimeError("Backend has not been created yet!")
+        return cls.backend
+
+    @classmethod
+    def set(cls, backend: Backend):
+        if cls.backend is None:
+            cls.backend = backend
 
 
 def get_backend() -> Backend:
-    if _backend is None:
-        raise RuntimeError("Backend has not been created yet!")
-    return _backend  # noqa
+    return BackendInstance.get()
 
 
 from .definitions import RunDef, ExperimentDef, ExecutorDef

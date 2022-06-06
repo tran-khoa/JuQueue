@@ -7,16 +7,17 @@ import os
 import sys
 import threading
 import time
-from pathlib import Path
 import typing
-from typing import Dict, Union, Optional
+from typing import Dict, Optional, Union
 
 import dask
 import yaml
 from loguru import logger
 
-from juqueue import get_backend, set_backend
+from juqueue import BackendInstance, get_backend
+from juqueue.config import Config, HasConfigField
 from juqueue.definitions.cluster import create_cluster_def
+
 if typing.TYPE_CHECKING:
     from juqueue.definitions import ExperimentDef
 from juqueue.backend.clusters.cluster_manager import ClusterManager
@@ -25,7 +26,7 @@ from .run_instance import RunInstance
 from juqueue.definitions import RunDef
 
 
-class Backend:
+class Backend(HasConfigField):
     _instance: Optional[Backend] = None
     experiment_managers: Dict[str, ExperimentManager]
     cluster_managers: Dict[str, ClusterManager]
@@ -34,15 +35,15 @@ class Backend:
     def instance(cls) -> Backend:
         return get_backend()
 
-    @classmethod
-    def create(cls, definitions_path: Path, work_path: Path, debug: bool = False) -> Backend:
-        backend = Backend(definitions_path, work_path, debug)
-        set_backend(backend)
-        return backend
+    def __init__(self, config: Config, on_shutdown: typing.Coroutine):
+        if BackendInstance.ready():
+            raise RuntimeError("BackendInstance already exists, cannot instantiate backend multiple times.")
+        BackendInstance.set(self)
 
-    def __init__(self, definitions_path: Path, work_path: Path, debug: bool = False):
-        self.definitions_path = definitions_path
-        self.work_path = work_path
+        self.config = config
+
+        self.definitions_path = config.def_dir
+        self.work_path = config.work_dir
 
         sys.path.insert(0, str(self.definitions_path))
 
@@ -52,8 +53,10 @@ class Backend:
 
         self._backend_lock = asyncio.Lock()
 
-        if debug:
+        if config.debug:
             dask.config.set({"logging.distributed": "debug"})
+
+        self._on_shutdown_handler = on_shutdown
 
     async def initialize(self):
         try:
@@ -137,6 +140,14 @@ class Backend:
                         del self.experiment_managers[xp.name]
             return results
 
+    def has_cluster_manager(self, key: Union[RunInstance, RunDef, str]) -> bool:
+        if isinstance(key, RunInstance):
+            key = key.run_def.cluster
+        elif isinstance(key, RunDef):
+            key = key.cluster
+
+        return key in self.cluster_managers
+
     def get_cluster_manager(self, key: Union[RunInstance, RunDef, str]) -> ClusterManager:
         if isinstance(key, RunInstance):
             key = key.run_def.cluster
@@ -149,7 +160,7 @@ class Backend:
         return cm
 
     async def stop(self):
-        self.schedule_kill(delay=5)
+        self.schedule_kill()
 
         logger.info("Stopping backend...")
         async with self._backend_lock:
@@ -162,7 +173,9 @@ class Backend:
             logger.info("Backend stopped.")
             self.running = False
 
-    def schedule_kill(self, delay: int = 5):
+        await self._on_shutdown_handler
+
+    def schedule_kill(self, delay: int = 30):
         pid = os.getpid()
 
         def _kill():
@@ -170,4 +183,6 @@ class Backend:
             print(f"Killing JuQueue after {delay} seconds. Goodbye.")
             os.system(f"kill -9 {pid}")
 
-        threading.Thread(target=_kill()).start()
+        thread = threading.Thread(target=_kill, daemon=True)
+        thread.start()
+        return thread

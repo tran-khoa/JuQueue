@@ -2,57 +2,65 @@
 
 import argparse
 import asyncio
-import logging
-import sys
 from pathlib import Path
 
 import nest_asyncio
+import uvloop
+from fastapi import FastAPI
+from filelock import FileLock, Timeout
+from hypercorn.asyncio import Config as HypercornConfig, serve
 from loguru import logger
 from tornado.ioloop import IOLoop
 
 from juqueue.api import API_ROUTERS
 from juqueue.backend.backend import Backend
-
-from filelock import FileLock, Timeout
-from fastapi import FastAPI
-from hypercorn.asyncio import serve
-from hypercorn.asyncio import Config
+from juqueue.config import Config, HasConfigField
+from juqueue.logger import setup_logger
 
 # Assumes the lock file is accessible over all nodes
 LOCK_FILE = Path(__file__).parent / ".lock"
 
 
-class Server:
-    def __init__(self, def_path: Path, work_path: Path, debug: bool = False):
+class Server(HasConfigField):
+    def __init__(self, config: Config):
+        self.config = config
+
+        if not config.debug:
+            uvloop.install()
         self._event_loop = asyncio.new_event_loop()
-        self._event_loop.set_debug(debug)
+        self._event_loop.set_debug(config.debug)
         asyncio.set_event_loop(self._event_loop)
-        nest_asyncio.apply(self._event_loop)
+
+        if config.debug:
+            # Nested async loops for IPython debug
+            nest_asyncio.apply(self._event_loop)
+
         self._event_loop.set_exception_handler(self.handle_exception)
 
         self._tornado_loop = IOLoop.current()
 
-        self._hypercorn_config = Config.from_mapping({"bind": "0.0.0.0:51234"})  # TODO random port
-        self._api = FastAPI()
+        self._hypercorn_config = HypercornConfig.from_mapping({"bind": "0.0.0.0:51234"})  # TODO random port
+        self._api = FastAPI(
+            title="JuQueue",
+            version="0.0.1"
+        )
         for router in API_ROUTERS:
             self._api.include_router(router)
 
-        self.def_path = def_path
-        self.work_path = work_path
-        self.debug = debug
+        self._backend = Backend(config, self.on_backend_shutdown())
+        self._shutdown_event = asyncio.Event()
 
     def handle_exception(self, _, context):
-        msg = context.get("exception", context["message"])
-        logger.error(f"Caught exception: {msg}")
+        if 'exception' in context and context['exception'] is not None:
+            logger.opt(exception=context['exception']).error("Encountered an unhandled exception.")
+        else:
+            logger.error(f"Encountered an exception with error message {context['message']}")
 
     async def _initialize(self):
-        backend = Backend.create(definitions_path=self.def_path,
-                                 work_path=self.work_path,
-                                 debug=self.debug)
-        await backend.initialize()
+        await self._backend.initialize()
 
         # noinspection PyTypeChecker
-        await serve(self._api, self._hypercorn_config)
+        await serve(self._api, self._hypercorn_config, shutdown_trigger=self._shutdown_event.wait)
 
     def start(self):
         self._event_loop.create_task(self._initialize(), name="main")
@@ -60,43 +68,39 @@ class Server:
         try:
             self._tornado_loop.start()
         finally:
+            logger.info("JuQueue shut down. Goodbye.")
             self._tornado_loop.close()
+
+    async def on_backend_shutdown(self):
+        self._shutdown_event.set()
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--def-path", type=Path, default=Path(__file__).parent / "defs")
-    parser.add_argument("--work-path", type=Path, default=Path(__file__).parent / "work")
+    parser.add_argument("--def-dir", type=Path, default=Path(__file__).parent / "defs")
+    parser.add_argument("--work-dir", type=Path, default=Path(__file__).parent / "work")
     parser.add_argument("--debug", action=argparse.BooleanOptionalAction, type=bool)
     args = parser.parse_args()
 
-    if not args.def_path.exists():
-        raise FileNotFoundError(f"Definitions path {args.def_path} does not exist.")
-    args.work_path.mkdir(parents=True, exist_ok=True)
+    if not args.def_dir.exists():
+        raise FileNotFoundError(f"Definitions path {args.def_dir} does not exist.")
+    args.work_dir.mkdir(parents=True, exist_ok=True)
 
     lock = FileLock(LOCK_FILE, timeout=2)
     try:
         with lock:
             # Setting up logging
-            log_path = args.work_path / "logs"
-            log_path.mkdir(exist_ok=True, parents=True)
-
-            log_level = logging.INFO
-            if args.debug:
-                log_level = logging.DEBUG
-
-            logging.basicConfig(level=log_level)
-
-            logger.remove()
-            logger.add(sys.stderr, level=log_level)
-            logger.add((log_path / "server.log").as_posix(),
-                       format="{time} {level} {message}", rotation="1 day", compression="gz", level=log_level)
+            log_path = args.work_dir / "logs"
+            setup_logger(log_path, args.debug)
 
             if args.debug:
                 logger.debug("Running in debug mode.")
 
+                import faulthandler
+                faulthandler.enable()
+
             # Start the server
-            server = Server(**vars(args))
+            server = Server(Config(**vars(args)))
             server.start()
     except Timeout:
         raise RuntimeError(f"JuQueue is already running, {LOCK_FILE} still locked!")

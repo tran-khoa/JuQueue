@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Union
 from loguru import logger
 
 from juqueue.backend.clusters.cluster_manager import ClusterManager
+from juqueue.config import Config, HasConfigProperty
 
 if typing.TYPE_CHECKING:
     from juqueue.backend.backend import Backend
@@ -14,7 +15,7 @@ if typing.TYPE_CHECKING:
 from juqueue.backend.run_instance import RunInstance
 
 
-class ExperimentManager:
+class ExperimentManager(HasConfigProperty):
 
     def __init__(self, experiment_name: str, backend: Backend):
         # noinspection PyTypeChecker
@@ -30,12 +31,16 @@ class ExperimentManager:
         self._lock = asyncio.Lock()
 
     @property
+    def config(self) -> Config:
+        return self._backend.config
+
+    @property
     def current_def(self):
         return self._def
 
     @property
-    def runs(self) -> List[RunInstance]:
-        return list(self._runs.values())
+    def runs(self) -> Dict[str, RunInstance]:
+        return self._runs
 
     def run_by_id(self, run_id: str) -> Optional[RunInstance]:
         return self._runs.get(run_id, None)
@@ -46,9 +51,10 @@ class ExperimentManager:
         if run_def.id.startswith("@"):
             issues.append(f"Invalid run_id {run_def.id}!")
         if run_def.experiment_name != self.experiment_name:
-            issues.append(f"Run {run_def} has invalid experiment name {run_def.experiment_name}, "
+            issues.append(f"{run_def} has invalid experiment name {run_def.experiment_name}, "
                           f"must be {self.experiment_name}!")
-        # TODO validate cluster
+        if not self._backend.has_cluster_manager(run_def):
+            issues.append(f"{run_def} defines an unknown cluster {run_def.cluster}!")
 
         return issues
 
@@ -73,7 +79,7 @@ class ExperimentManager:
 
                 if run_def.id not in self._runs:
                     logger.info(f"Found new run {run_def}...")
-                    run = RunInstance(run_def)
+                    run = RunInstance(self, run_def=run_def)
                     if not run.load_from_disk():
                         run.save_to_disk()
                     ids_new.add(run_def.id)
@@ -139,6 +145,8 @@ class ExperimentManager:
 
             for cm in cms.values():
                 await cm.rescale()
+
+            logger.info(f"Cancelled runs {run_ids}!")
 
     def get_cluster_manager(self, key: Union[RunDef, RunInstance, str]) -> ClusterManager:
         return self._backend.get_cluster_manager(key)

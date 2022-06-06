@@ -5,32 +5,57 @@ import json
 import typing
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, Literal, Optional, Tuple
 
 from loguru import logger
 
 from juqueue.backend.nodes import NodeManagerWrapper
+from juqueue.backend.utils import RunStatus
 
 if typing.TYPE_CHECKING:
     from juqueue.definitions import RunDef
-
-RunStatus = Literal['running', 'ready', 'failed', 'inactive', 'finished']
+    from juqueue.backend.experiments import ExperimentManager
+    from loguru import Logger
 
 
 @dataclass
 class RunInstance:
+    manager: ExperimentManager
     run_def: RunDef
     status: RunStatus = 'inactive'
     created_at: datetime = field(default_factory=lambda: datetime.now())
 
+    # TODO: This part should move to SchedulerItem
     watcher: Optional[asyncio.Task] = None
     node: Optional[NodeManagerWrapper] = None
 
     def __post_init__(self):
         if self.run_def.is_abstract:
             raise ValueError("Cannot instantiate an abstract run definition.")
-        self.run_def.path.mkdir(parents=True, exist_ok=True)
-        self.run_def.log_path.mkdir(parents=True, exist_ok=True)
+        self.run_path.mkdir(parents=True, exist_ok=True)
+        self.log_path.mkdir(parents=True, exist_ok=True)
+
+        logger.add(self.run_path / "juqueue.log",
+                   filter=lambda r: r.get("run_id", None) == self.global_id)
+
+    @property
+    def run_path(self) -> Path:
+        return self.run_def.path.contextualize(
+            work_dir=self.manager.config.work_dir
+        )
+
+    @property
+    def log_path(self):
+        return self.run_def.log_path.contextualize(
+            work_dir=self.manager.config.work_dir
+        )
+
+    @property
+    def metadata_path(self):
+        return self.run_def.metadata_path.contextualize(
+            work_dir=self.manager.config.work_dir
+        )
 
     @property
     def global_id(self):
@@ -70,22 +95,22 @@ class RunInstance:
         }
 
     def save_to_disk(self):
-        self.run_def.path.mkdir(exist_ok=True, parents=True)
+        self.run_path.mkdir(exist_ok=True, parents=True)
 
-        with open(self.run_def.metadata_path, 'wt') as f:
+        with self.metadata_path.open('wt') as f:
             json.dump(self.state_dict(), f)
 
     def load_from_disk(self) -> bool:
-        if not self.run_def.metadata_path.exists():
+        if not self.metadata_path.exists():
             return False
 
         try:
-            with open(self.run_def.metadata_path, 'rt') as f:
+            with self.metadata_path.open('rt') as f:
                 self.load_state_dict(json.load(f))
             return True
         except json.JSONDecodeError:
             logger.warning(f"Stored metadata of {self.run_def.global_id} corrupted, deleting...")
-            self.run_def.metadata_path.unlink()
+            self.metadata_path.unlink()
             return False
 
     def set_running(self, watcher: asyncio.Task, node: NodeManagerWrapper):
@@ -107,3 +132,6 @@ class RunInstance:
     def __repr__(self):
         return f"Run(run_def={repr(self.run_def)}, status={self.status})"
 
+    @property
+    def logger(self) -> Logger:
+        return logger.bind(run_id=self.global_id)
