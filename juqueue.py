@@ -51,8 +51,10 @@ class Server(HasConfigField):
         self._shutdown_event = asyncio.Event()
 
     def handle_exception(self, _, context):
-        msg = context.get("exception", context["message"])
-        logger.error(f"Caught exception: {msg}")
+        if 'exception' in context and context['exception'] is not None:
+            logger.opt(exception=context['exception']).error("Encountered an unhandled exception.")
+        else:
+            logger.error(f"Encountered an exception with error message {context['message']}")
 
     async def _initialize(self):
         await self._backend.initialize()
@@ -71,7 +73,6 @@ class Server(HasConfigField):
 
     async def on_backend_shutdown(self):
         self._shutdown_event.set()
-        self._tornado_loop.call_later(delay=1, callback=self._tornado_loop.stop)
 
 
 if __name__ == '__main__':

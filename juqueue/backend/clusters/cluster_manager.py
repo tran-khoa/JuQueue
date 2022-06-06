@@ -110,9 +110,8 @@ class ClusterManager(HasConfigProperty):
     def dask_client(self) -> Client:
         return self._client
 
-    async def load_cluster_def(self, cluster_def: ClusterDef, force_reload: bool = False) -> Literal["unchanged",
-                                                                                                     "no_update",
-                                                                                                     "updated"]:
+    async def load_cluster_def(self, cluster_def: ClusterDef, force_reload: bool = False) -> \
+            Literal["unchanged", "no_update", "updated"]:
         if self._cluster_def:
             if cluster_def == self._cluster_def:
                 return "unchanged"
@@ -178,14 +177,18 @@ class ClusterManager(HasConfigProperty):
             if run.status == "running":
                 if force:
                     try:
-                        await asyncio.wait_for(self._stop_run(run.global_id), 3)
+                        await asyncio.wait_for(self._stop_run(run.global_id), 5)
                     except asyncio.TimeoutError:
                         logger.exception(f"Timed out waiting for {run.global_id} to stop, assuming worker death.")
-
+                    except NodeDeathError:
+                        pass
                     finally:
                         await self._handle_run_event(run, RunEvent.CANCELLED_USER)
                 else:
                     return False
+
+            run.transition("inactive")
+            self._remove_run(run_id)
 
             return True
 
@@ -207,17 +210,12 @@ class ClusterManager(HasConfigProperty):
             run.watcher.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await run.watcher
+
+            logger.debug(f"Requesting cancellation of {run_id} on {run.node}")
             return await run.node.stop_run(run_id)
 
-    def request_sync(self):
-        if self._sync_requested:
-            return
-
-        self._sync_requested = True
-        sync_task = asyncio.create_task(self.__sync())
-        sync_task.add_done_callback(generic_error_handler)
-
     async def rescale(self) -> Tuple[int, int]:
+        min_jobs = self._cluster_def.min_jobs
         max_jobs = self._cluster_def.max_jobs
         current_jobs = len(self._client.scheduler_info()['workers'])
 
@@ -225,6 +223,7 @@ class ClusterManager(HasConfigProperty):
 
         recommended_jobs = self._cluster_def.scaling_policy(remaining_runs, self._cluster_def.num_slots)
         recommended_jobs = min(recommended_jobs, max_jobs)
+        recommended_jobs = max(recommended_jobs, min_jobs)
 
         if current_jobs != recommended_jobs:
             logger.info(f"Rescaling {self.cluster_name}(max_jobs={max_jobs}) "
@@ -245,9 +244,9 @@ class ClusterManager(HasConfigProperty):
 
         self._scheduler.cancel()
         with contextlib.suppress(asyncio.TimeoutError):
-            await asyncio.wait_for(self._scheduler, timeout=3)
+            await asyncio.wait_for(self._scheduler, timeout=1)
 
-        stop_tasks = [asyncio.create_task(node.request_shutdown()) for node in self._nodes.values()]
+        stop_tasks = [asyncio.create_task(self._remove_node(idx)) for idx in self._nodes.keys()]
         if stop_tasks:
             _, failed = await asyncio.wait(stop_tasks, timeout=5)
             if failed:
@@ -289,7 +288,7 @@ class ClusterManager(HasConfigProperty):
         await node.request_shutdown()
         if node.worker:
             try:
-                await self._cluster.scale_down([node.worker])
+                await self._client.retire_workers([node.worker], close_workers=True)
             except:
                 logger.exception(f"Could not remove node {node.name}.")
 
@@ -300,6 +299,45 @@ class ClusterManager(HasConfigProperty):
             if run.status == "running" and run.node.index == node_idx:
                 runs.append(run)
         return runs
+
+    def request_sync(self):
+        if self._sync_requested:
+            return
+
+        self._sync_requested = True
+        sync_task = asyncio.create_task(self.__sync())
+        sync_task.add_done_callback(generic_error_handler)
+
+    async def __sync(self):
+        """ Syncs actual running jobs to current state """
+        try:
+            async with self._scheduler_lock, holds_lock("__sync"):
+                logger.debug(f"Synchronizing {self.cluster_name}...")
+
+                # Check for dead nodes and make sure they are dead
+                dead_nodes = {idx: node for idx, node in self._nodes.items() if node.status == "dead"}
+                for dead_node in dead_nodes.values():
+                    if dead_node.worker:
+                        await self._cluster.scale_down([dead_node.worker])
+                self._nodes = {idx: node for idx, node in self._nodes.items() if node.status != "dead"}
+
+                # Update to current requested number of nodes
+                while len(self._nodes) < self._num_node_requested:
+                    self._add_node()
+                    self.notify_new_slot.set()
+
+                nodes_removed = set()
+                while len(self._nodes) > self._num_node_requested:
+                    idx, importance = await self._next_removable_node()
+                    nodes_removed.add(idx)
+
+                    logger.info(f"Removing node {idx} with importance {importance}...")
+                    await self._remove_node(idx)
+                    assert idx not in self._nodes
+
+                await self._cluster.scale(jobs=self._num_node_requested)
+        finally:
+            self._sync_requested = False
 
     async def _next_removable_node(self) -> Tuple[int, Tuple]:
         candidate = None
@@ -327,43 +365,17 @@ class ClusterManager(HasConfigProperty):
 
         return candidate, importance  # noqa
 
-    async def __sync(self):
-        """ Syncs actual running jobs to current state """
-        try:
-            async with self._scheduler_lock, holds_lock("__sync"):
-                logger.debug(f"Synchronizing {self.cluster_name}...")
-
-                # Check for dead actors
-                self._nodes = {idx: node for idx, node in self._nodes.items() if node.status != "dead"}
-
-                # Update to current requested number of actors
-                while len(self._nodes) < self._num_node_requested:
-                    self._add_node()
-
-                nodes_removed = set()
-                while len(self._nodes) > self._num_node_requested:
-                    idx, importance = await self._next_removable_node()
-                    nodes_removed.add(idx)
-
-                    logger.info(f"Removing node {idx} with importance {importance}...")
-                    await self._remove_node(idx)
-                    assert idx not in self._nodes
-
-                await self._cluster.scale(jobs=self._num_node_requested)
-        finally:
-            self._sync_requested = False
-
     async def _add_run(self, run: RunInstance):
         self._run_schedules[run.global_id] = RunSchedule(run)
         await self._run_queue.put(self._run_schedules[run.global_id])
 
     def _remove_run(self, run_id: str):
         """
-        Removes a run from the cluster manager and dequeues the run if exists.
+        Removes a run from the cluster manager and dequeues the run, if exists.
         Does not cancel running runs.
         """
         if run_id not in self._run_schedules:
-            raise ValueError(f"Run {run_id} not registered.")
+            return
 
         self._run_schedules[run_id].invalidate()
         del self._run_schedules[run_id]
@@ -371,10 +383,12 @@ class ClusterManager(HasConfigProperty):
     async def _schedule_to(self) -> NodeManagerWrapper:
         current_cand, current_avail = None, math.inf
 
+        dead_nodes = False
         for node_idx, node in self._nodes.items():
             try:
                 avail = await node.available_slots()
             except (NodeDeathError, NodeNotReadyError):
+                dead_nodes = True
                 continue
 
             if not avail:
@@ -383,6 +397,9 @@ class ClusterManager(HasConfigProperty):
                 return node
             if avail < current_avail:
                 current_cand, current_avail = node, avail
+
+        if dead_nodes:
+            self.request_sync()
 
         if current_cand is None:
             raise NoSlotsError()
@@ -403,32 +420,49 @@ class ClusterManager(HasConfigProperty):
                         node = await self._schedule_to()
                     except NoSlotsError:
                         logger.debug(f"All workers are busy, pausing scheduler...")
+
                         pause_scheduler = True
                     else:
                         try:
-                            key = await node.queue_run(item.run_def)
-                        except NoSlotsError:
-                            logger.warning(f"Node {node} unexpectedly has no available slots!")
-                        except NodeDeathError:
-                            logger.warning(f"Node {node} has died and cannot be scheduled to.")
-                        except:
-                            logger.exception("Exception")
-                            raise
+                            key = f"run_event_{item.global_id}"
+                            queue = dask.distributed.Queue(key)
+
+                            with contextlib.suppress(Exception):
+                                # Empty queue
+                                await asyncio.wait_for(queue.get(batch=True), timeout=1)
+
+                        except Exception as ex:
+                            logger.opt(exception=ex).debug("Could not create sub...")
+                            pause_scheduler = True
                         else:
-                            if node.status == "dead":
+                            try:
+                                remote_key = await node.queue_run(item.run_def)
+                                assert key == remote_key
+                            except NoSlotsError:
+                                logger.warning(f"Node {node} unexpectedly has no available slots!")
+                            except NodeDeathError:
                                 logger.warning(f"Node {node} has died and cannot be scheduled to.")
+                            except:
+                                logger.exception("Exception")
+                                raise
                             else:
-                                logger.info(f"Node {node} accepted {item.run_def} with key {key}.")
-                                watcher_task = asyncio.create_task(
-                                    self._watcher_coro(node, item.run_instance, key),
-                                    name=f"watcher_{item.global_id}"
-                                )
-                                watcher_task.add_done_callback(generic_error_handler)
-                                item.run_instance.set_running(watcher_task, node)
-                                self.notify_new_slot.clear()
+                                if node.status == "dead":
+                                    logger.warning(f"Node {node} has died and cannot be scheduled to.")
+                                else:
+                                    logger.info(f"Node {node} accepted {item.run_def} with key {key}.")
+                                    watcher_task = asyncio.create_task(
+                                        self._watcher_coro(node, item.run_instance, queue),
+                                        name=f"watcher_{item.global_id}"
+                                    )
+                                    watcher_task.add_done_callback(generic_error_handler)
+                                    item.run_instance.set_running(watcher_task, node)
+                                    self.notify_new_slot.clear()
 
                 if pause_scheduler:
                     await self._run_queue.put(item)
+
+                    self._sync_requested = True
+                    await self.__sync()
 
                     timeout_task = asyncio.create_task(asyncio.sleep(30))
                     notif_task = asyncio.create_task(self.notify_new_slot.wait())
@@ -440,8 +474,8 @@ class ClusterManager(HasConfigProperty):
                         logger.debug("Resuming scheduler after 30 seconds...")
         except asyncio.CancelledError:
             logger.debug(f"Shutting down scheduler {self.cluster_name}.")
-        except:
-            logger.exception("Scheduler failure! Shutting down JuQueue!")
+        except Exception as ex:
+            logger.opt(exception=ex).exception("Scheduler failure! Shutting down JuQueue!")
             await self._backend.stop()
 
     async def _handle_run_event(self, run: RunInstance, event: RunEvent, error: Union[Exception, int, None] = None):
@@ -485,21 +519,14 @@ class ClusterManager(HasConfigProperty):
         await self.rescale()
         self.notify_new_slot.set()
 
-    async def _watcher_coro(self, node: NodeManagerWrapper, run: RunInstance, key: str):
-        run.logger.debug(f"Watcher has been instantiated with key {key}.")
-
-        try:
-            sub = dask.distributed.Sub(key)
-        except:
-            logger.exception(f"Could not subscribe to {key}, assuming node failure.")
-            node.mark_stopped()
-            return
+    async def _watcher_coro(self, node: NodeManagerWrapper, run: RunInstance, queue: dask.distributed.Queue):
+        run.logger.debug(f"Watcher has been instantiated with key {queue.name}.")
 
         timeout = 3 * 60
 
         try:
             while True:
-                done, _ = await asyncio.wait([sub.get(timeout), node.block_until_death()],
+                done, _ = await asyncio.wait([queue.get(timeout), node.block_until_death()],
                                              return_when=asyncio.FIRST_COMPLETED)
 
                 if len(done) == 1 and node.block_until_death() in done:
@@ -514,16 +541,16 @@ class ClusterManager(HasConfigProperty):
 
         except asyncio.CancelledError:
             # Occurs only on cancellation on server-side
-            logger.debug(f"Cancelling watcher {key}...")
+            logger.debug(f"Cancelling watcher {queue.name}...")
             return
         except asyncio.TimeoutError:
-            logger.debug(f"No heartbeat detected from {key}, assuming task is dead.")
-            with contextlib.suppress(NodeDeathError), contextlib.suppress(TimeoutError):
+            logger.debug(f"No heartbeat detected from {queue.name}, assuming task is dead.")
+            with contextlib.suppress(NodeDeathError, asyncio.TimeoutError):
                 await asyncio.wait_for(node.stop_run(run.global_id), 5)
 
             await self._handle_run_event(run, RunEvent.CANCELLED_WORKER_DEATH)
         except Exception as ex:
-            logger.bind(exception=ex).exception(f"Exception {ex} in watcher task for {key}."
+            logger.bind(exception=ex).exception(f"Exception {ex} in watcher task for {queue.name}."
                                                 f"Stopping JuQueue, please report this issue!")
             await self._backend.stop()
 
@@ -537,7 +564,7 @@ class ClusterManager(HasConfigProperty):
                 if event_type == "remove":
                     for node_idx, node in self._nodes.items():
                         if node.worker == args:
-                            logger.warning(f"Detected death of actor {node_idx}!")
+                            logger.debug(f"Dask reported node {node_idx} removed from cluster {self.cluster_name}.")
                             node.mark_stopped()
                 else:
                     logger.warning(f"Ignoring unknown scheduler event {event_type}")

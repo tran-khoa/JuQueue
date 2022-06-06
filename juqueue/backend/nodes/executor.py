@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import datetime
 import os
 import shlex
 import tempfile
 import typing
+from asyncio.subprocess import Process
 from pathlib import Path
 from typing import Dict, List
+
+from loguru import logger
 
 from juqueue.definitions import ExecutorDef
 
@@ -47,7 +51,8 @@ class Executor(ExecutorDef):
             script.extend(self.prepend_script)
         if self.venv:
             script.append(f". {str(Path(self.venv) / 'bin' / 'activate')}")
-        script.append(shlex.join(run.parsed_cmd(work_dir=self.work_dir)))
+        exec_line = ["exec"] + run.parsed_cmd(work_dir=self.work_dir)
+        script.append(shlex.join(exec_line))
         return "\n".join(script)
 
     def create_virtual_script(self, run: RunDef, slots: List[int]) -> str:
@@ -80,14 +85,33 @@ class Executor(ExecutorDef):
 
             os.chmod(run_file.name, 0o700)
 
-            process = await asyncio.create_subprocess_shell(run_file.name,
-                                                            env=env,
-                                                            cwd=path,
-                                                            stdout=stdout,
-                                                            stderr=stderr,
-                                                            executable="/bin/bash")
-            status = await process.wait()
+            try:
+                process = await asyncio.create_subprocess_shell(f"exec {run_file.name}",
+                                                                env=env,
+                                                                cwd=path,
+                                                                stdout=stdout,
+                                                                stderr=stderr,
+                                                                executable="/bin/bash")
+                return await process.wait()
+            except asyncio.CancelledError:
+                logger.debug("Cancelling running process...")
+                if process is not None:
+                    process.terminate()
 
-            os.unlink(run_file.name)
+                # TODO timeout should be part of rundef
+                asyncio.create_task(self._schedule_kill(run, process, timeout=120))
+            except:
+                logger.exception(f"Exception occured while executing {run}!")
+                raise
+            finally:
+                if process is not None:
+                    process.kill()
 
-        return status
+                os.unlink(run_file.name)
+
+    async def _schedule_kill(self, run_def: RunDef, process: Process, timeout: int):
+        try:
+            await asyncio.wait_for(process.wait(), timeout)
+        except TimeoutError:
+            logger.debug(f"Process of {run_def} took longer than {timeout} seconds to terminate. Killing.")
+            process.kill()

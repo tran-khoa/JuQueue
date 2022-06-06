@@ -16,6 +16,7 @@ from juqueue.backend.nodes import Executor
 from juqueue.backend.utils import RunEvent
 from juqueue.backend.utils import generic_error_handler
 
+
 @dataclass
 class Slot:
     index: int
@@ -36,52 +37,59 @@ class Slot:
         }
 
     def assign(self, run_def: RunDef, executor: Executor) -> str:
+        logger.debug(f"Assigning {run_def} to slot {self.index}...")
         self.occupant = run_def.global_id
         self.run_def = run_def
         self.executor = executor
 
-        key = f"{self.occupant}-{str(uuid.uuid4())}"
-        self.task = asyncio.create_task(self._execution_coro(key, slots=[self.index]))
+        key = f"run_event_{run_def.global_id}"
+        queue = dask.distributed.Queue(key)
+        self.task = asyncio.create_task(self._execution_coro(queue, slots=[self.index]))
 
         return key
 
-    async def _heartbeat_coro(self, key: str):
-        fut = dask.distributed.Pub(key)
-        while True:
-            fut.put(ExecutionResult.pack(RunEvent.RUNNING))
-            await asyncio.sleep(60)
-
-    async def _execution_coro(self, key: str, slots: List[int]):
+    async def _heartbeat_coro(self, queue: dask.distributed.Queue):
         try:
-            fut = dask.distributed.Pub(key)
-            heartbeat = asyncio.create_task(self._heartbeat_coro(key))
+            while True:
+                await queue.put(ExecutionResult.pack(RunEvent.RUNNING))
+                await asyncio.sleep(60)
+        except Exception as ex:
+            logger.opt(exception=ex).exception("Exception in heartbeat task.")
+            raise
+
+    async def _execution_coro(self, queue: dask.distributed.Queue, slots: List[int]):
+        try:
+            heartbeat = asyncio.create_task(self._heartbeat_coro(queue))
             heartbeat.add_done_callback(generic_error_handler)
-        except:
-            logger.exception("Fatal error!")
-            raise RuntimeError()
+        except Exception as ex:
+            logger.opt(exception=ex).exception("Fatal error!")
+            raise
 
         try:
             return_code = await asyncio.create_task(self.executor.execute(self.run_def, slots))
 
             heartbeat.cancel()
             if return_code == 0:
-                fut.put(ExecutionResult.pack(RunEvent.SUCCESS))
+                await queue.put(ExecutionResult.pack(RunEvent.SUCCESS))
             else:
-                fut.put(ExecutionResult.pack(RunEvent.FAILED, return_code))
+                await queue.put(ExecutionResult.pack(RunEvent.FAILED, return_code))
         except asyncio.CancelledError:
             # Assumes cluster manager takes care of explicit cancellation
             logger.info(f"{self} has been cancelled...")
 
             heartbeat.cancel()
+            raise
         except Exception as ex:
             logger.exception(f"An exception occured on {self}...")
 
             heartbeat.cancel()
-            fut.put(ExecutionResult.pack(RunEvent.FAILED, ex))
+            await queue.put(ExecutionResult.pack(RunEvent.FAILED, ex))
+            raise
         finally:
             self._free()
 
     async def cancel(self):
+        logger.debug(f"Cancelling slot {self.index}")
         if self.task is not None:
             self.task.cancel()
             with contextlib.suppress(Exception):
@@ -100,6 +108,7 @@ class Slot:
         self._free()
 
     def _free(self):
+        logger.debug(f"Freeing slot {self.index}...")
         self.occupant = None
         self.run_def = None
         self.task = None

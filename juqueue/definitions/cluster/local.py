@@ -1,3 +1,5 @@
+import os
+
 from dask_jobqueue import JobQueueCluster
 from dask_jobqueue.local import (LocalCluster as DaskLocalCluster, LocalJob as DaskLocalJob)
 
@@ -6,6 +8,7 @@ from .base import ClusterDef
 
 
 class _LocalJob(DaskLocalJob):
+
     @property
     def worker_process_threads(self):
         return 1
@@ -24,5 +27,10 @@ class LocalClusterDef(ClusterDef):
         return DaskLocalCluster(job_cls=_LocalJob,  # noqa
                                 name=self.name,
                                 processes=1,
+                                nanny=False,
                                 asynchronous=True,
                                 **self._kwargs)
+
+    @property
+    def min_jobs(self):
+        return 1

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import platform
 import typing
-from asyncio import Lock
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Protocol
 
@@ -67,29 +66,37 @@ class NodeManagerInstance(NodeManager):
         return 1 - (await self.available_slots() / self.num_slots)
 
     async def queue_run(self, run_def: RunDef, num_slots: int = 1) -> str:
-        local_logger = logger.bind(name=self.name, run_id=run_def.global_id)
+        try:
+            local_logger = logger.bind(name=self.name, run_id=run_def.global_id)
 
-        if num_slots != 1:
-            raise NotImplementedError()
+            if num_slots != 1:
+                raise NotImplementedError()
 
-        key = None
-        for slot in self.slots:
-            if not slot.is_occupied:
-                executor = Executor.from_def(run_def.executor, work_dir=self.work_path)
-                key = slot.assign(run_def, executor)
+            key = None
+            for slot in self.slots:
+                if not slot.is_occupied:
+                    executor = Executor.from_def(run_def.executor, work_dir=self.work_path)
+                    key = slot.assign(run_def, executor)
 
-                local_logger.info(f"Succesfully queued task: {slot}")
-                break
+                    local_logger.info(f"Succesfully queued task: {slot}")
+                    break
 
-        if not key:
-            raise NoSlotsError()
+            if not key:
+                raise NoSlotsError()
 
-        return key
+            return key
+        except Exception as ex:
+            logger.opt(exception=ex).error("Exception in queue_run")
+            raise
 
     async def stop_run(self, run_id: str) -> bool:
-        success = False
-        for slot in self.slots:
-            if slot.occupant == run_id:
-                await slot.cancel()
-                success = True
-        return success
+        try:
+            success = False
+            for slot in self.slots:
+                if slot.occupant == run_id:
+                    await slot.cancel()
+                    success = True
+            return success
+        except Exception as ex:
+            logger.opt(exception=ex).error("Exception in queue_run")
+            raise

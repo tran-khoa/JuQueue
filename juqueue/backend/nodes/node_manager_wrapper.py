@@ -31,6 +31,7 @@ class NodeManagerWrapper(NodeManager):
         self.index = index
         self.heartbeat_interval = heartbeat_interval
 
+        self._address = None
         self._stopped = Event()
         self._task_actor_death = asyncio.create_task(self._heartbeat_coro(), name=f"Heartbeat-NodeManager-{self.name}")
 
@@ -51,7 +52,9 @@ class NodeManagerWrapper(NodeManager):
                 return "dead"
         else:
             self.instance: Actor
-            if (self.instance._future and self.instance._future.status in ("finished", "pending")):  # noqa
+            if (self.instance._future  # noqa
+                and self.instance._future.status in ("finished", "pending")  # noqa
+                and not self._stopped.is_set()):
                 return "alive"
             else:
                 return "dead"
@@ -62,15 +65,20 @@ class NodeManagerWrapper(NodeManager):
 
     @property
     def worker(self) -> Optional[str]:
+        if self._address:
+            return self._address
+
         if isinstance(self.instance, Actor):
-            return self.instance._address  # noqa
-        return None
+            self._address = self.instance._address  # noqa
+        return self._address
 
     def block_until_death(self) -> asyncio.Task:
         return self._task_actor_death
 
     def mark_stopped(self):
-        self._stopped.set()
+        if not self._stopped.is_set():
+            self._stopped.set()
+            self.cluster_manager.request_sync()
 
     async def request_shutdown(self):
         if self.instance is None:
@@ -86,14 +94,15 @@ class NodeManagerWrapper(NodeManager):
         self.instance = None
 
     async def _start_coro(self):
-        print(f"Starting new node instance {self.name}....")
+        logger.info(f"Starting new node instance {self.name}....")
         try:
             actor = await self.cluster_manager.dask_client.submit(NodeManagerInstance,
                                                                   name=f"NodeManager-{self.name}",
                                                                   num_slots=self.cluster_manager.num_slots,
                                                                   work_path=self.cluster_manager.work_path,
                                                                   actor=True,
-                                                                  key=f"NodeManager-{self.name}")
+                                                                  key=f"NodeManager-{self.name}",
+                                                                  resources={"slots": 1})
         except (asyncio.CancelledError, concurrent.futures.CancelledError):
             logger.info(f"Cancelling creation of NodeManager {self.name}.")
             self.instance = None
@@ -129,6 +138,7 @@ class NodeManagerWrapper(NodeManager):
             return super().__getattribute__(key)
 
         if self.status == "dead":
+            self.mark_stopped()
             raise NodeDeathError()
         elif self.status == "inactive":
             raise NodeNotReadyError()
@@ -142,12 +152,18 @@ class NodeManagerWrapper(NodeManager):
             @functools.wraps(obj)
             def func(*args, **kwargs):
                 actor_future = obj(*args, **kwargs)
+                timeout_task = asyncio.create_task(asyncio.sleep(30))
 
                 async def f():
-                    done, _ = await asyncio.wait([actor_future, self._task_actor_death], return_when=FIRST_COMPLETED)
+                    done, _ = await asyncio.wait([actor_future, self._task_actor_death, timeout_task],
+                                                 return_when=FIRST_COMPLETED)
                     if self._task_actor_death in done:
                         self.mark_stopped()
-                        raise NodeDeathError()
+                        raise NodeDeathError("Notified of node death")
+                    elif timeout_task in done:
+                        self.mark_stopped()
+                        raise NodeDeathError("Request timed out, assuming node death.")
+
                     result: Task = done.pop()
                     if result.exception():
                         raise result.exception()

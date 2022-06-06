@@ -25,5 +25,6 @@ class SLURMClusterDef(ClusterDef):
         return DaskSLURMCluster(job_cls=_SLURMJob,  # noqa
                                 name=self.name,
                                 processes=1,
+                                nanny=True,
                                 asynchronous=True,
                                 **self._kwargs)

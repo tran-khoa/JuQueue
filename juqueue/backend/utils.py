@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import traceback
 from enum import Enum
 from typing import Literal
 
@@ -22,10 +23,13 @@ RunStatus = Literal['running', 'ready', 'failed', 'inactive', 'finished']
 def generic_error_handler(future: asyncio.Future):
     exc = future.exception()
     if exc:
+        if isinstance(exc, asyncio.TimeoutError):
+            return
+
         from juqueue.backend.backend import Backend
 
-        logger.opt(exception=exc).error(f"An unexpected exception occured ({exc}), stopping the backend...\n"
-                                        "Please report this issue.")
+        logger.opt(exception=exc).exception(f"An unexpected exception occured ({exc}), stopping the backend... "
+                                            "Please report this issue!")
         asyncio.get_running_loop().call_soon(lambda: asyncio.ensure_future(
             Backend.instance().stop()
         ))

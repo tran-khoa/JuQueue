@@ -51,3 +51,7 @@ class ClusterDef(ABC):
             if getattr(self, p) != getattr(other, p):
                 return False
         return True
+
+    @property
+    def min_jobs(self):
+        return 0
