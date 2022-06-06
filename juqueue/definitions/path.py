@@ -1,7 +1,5 @@
 from pathlib import Path, PurePosixPath
-from typing import Dict, Optional
-
-from pydantic.fields import ModelField
+from typing import Dict
 
 
 class PathDef(PurePosixPath):
@@ -36,7 +34,7 @@ class PathDef(PurePosixPath):
         return Path(*parts)  # noqa
 
     @classmethod
-    def __modify_schema__(cls, field_schema, *args, **kwargs):
+    def __modify_schema__(cls, field_schema, *args, **kwargs):  # noqa
         field_schema['format'] = 'path'
         return field_schema
 
