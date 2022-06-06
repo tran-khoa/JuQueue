@@ -7,7 +7,7 @@ tornado~=6.1
 loguru~=0.6.0
 
 nest_asyncio
-filelock~=3.7.1
+filelock
 
 # API
 fastapi~=0.78.0

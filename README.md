@@ -18,8 +18,8 @@ Work in progress and potentially unstable.
   - A logical group of Runs.
 - **Clusters**
   - Each Cluster (currently `local` and `slurm`) defines a group of nodes.
-  - A ClusterManager queues jobs running NodeManagers are submitted/cancelled.
-    - Each NodeManager specifies a certain number of Slots and manages the execution of Runs in subprocesses.
+  - A ClusterManager manages NodeManagers on computation nodes (e.g. via SLURM jobs).
+    - Each NodeManager specifies a certain number of Slots and manages the execution of Runs in Python subprocesses.
     - As Runs are (un-)queued from/to the Cluster, or are completed/failed, the number of nodes is rescaled as necessary.
   - For now, the system is aggressive in minimizing the number of nodes, e.g.
     - Assume 4 nodes (each with 4 slots), each executing a single Run
