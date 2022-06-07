@@ -1,0 +1,64 @@
+[build-system]
+requires      = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "juqueue"
+version = "0.0.1"
+description = "Computation and work management system for time-constrained cluster environments."
+readme = "README.md"
+authors = [{ name = "Viet Anh Khoa Tran", email = "v.tran@fz-juelich.de" }]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Development Status :: 2 - Pre-Alpha",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+keywords = ["workflow", "cluster", "management", "slurm", "dask"]
+dependencies = [
+    "pyyaml~=6.0",
+    "dask_jobqueue",
+    "dask~=2022.5.2",
+    "tornado~=6.1",
+    "loguru~=0.6.0",
+    "nest_asyncio",
+    "filelock~=3.7.1",
+    "fastapi~=0.78.0",
+    "hypercorn~=0.13.2",
+    "pydantic~=1.9.1",
+    "uvloop~=0.16.0"
+]
+requires-python = ">=3.7"
+
+[tool.setuptools]
+packages = ["juqueue"]
+
+[project.urls]
+Homepage = "https://github.com/tran-khoa/JuQueue"
+
+[project.scripts]
+juqueue = "juqueue.__main__:main"
+
+[tool.bumpver]
+current_version = "0.0.0"
+version_pattern = "MAJOR.MINOR.PATCH"
+commit_message = "bump version {old_version} -> {new_version}"
+commit = true
+tag = true
+push = false
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = [
+    'current_version = "{version}"',
+]
+"setup.py" = [
+    "{version}",
+    "{pep440_version}",
+]
+"README.md" = [
+    "{version}",
+    "{pep440_version}",
+]
+"juqueue/__init__.py" = ["{version}"]

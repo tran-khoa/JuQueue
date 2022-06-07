@@ -2,23 +2,27 @@
 
 import argparse
 import asyncio
+from importlib.resources import files
 from pathlib import Path
+import socket
 
 import nest_asyncio
 import uvloop
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from filelock import FileLock, Timeout
 from hypercorn.asyncio import Config as HypercornConfig, serve
 from loguru import logger
+from starlette.staticfiles import StaticFiles
 from tornado.ioloop import IOLoop
 
 from juqueue.api import API_ROUTERS
 from juqueue.backend.backend import Backend
 from juqueue.config import Config, HasConfigField
 from juqueue.logger import setup_logger
+import juqueue.assets.juqueue_web
 
-# Assumes the lock file is accessible over all nodes
-LOCK_FILE = Path(__file__).parent / ".lock"
+
+MAIN_ROUTER = APIRouter()
 
 
 class Server(HasConfigField):
@@ -39,13 +43,21 @@ class Server(HasConfigField):
 
         self._tornado_loop = IOLoop.current()
 
-        self._hypercorn_config = HypercornConfig.from_mapping({"bind": "0.0.0.0:51234"})  # TODO random port
+        self._ip = socket.gethostbyname(socket.gethostname())
+        self.address = f"{self._ip}:{self.config.port}"
+
+        self._hypercorn_config = HypercornConfig.from_mapping({"bind": [self.address, f"localhost:{self.config.port}"]})
         self._api = FastAPI(
             title="JuQueue",
             version="0.0.1"
         )
         for router in API_ROUTERS:
             self._api.include_router(router)
+
+        self._api.include_router(MAIN_ROUTER)
+        self._api.mount("/",
+                        StaticFiles(directory=files(juqueue.assets.juqueue_web), html=True),  # noqa
+                        name="app")
 
         self._backend = Backend(config, self.on_backend_shutdown())
         self._shutdown_event = asyncio.Event()
@@ -75,10 +87,18 @@ class Server(HasConfigField):
         self._shutdown_event.set()
 
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--def-dir", type=Path, default=Path(__file__).parent / "defs")
-    parser.add_argument("--work-dir", type=Path, default=Path(__file__).parent / "work")
+    parser.add_argument("--def-dir",
+                        help="Path to definitions, see example_defs/ for reference, available on master node.",
+                        type=Path, required=True)
+    parser.add_argument("--work-dir",
+                        help="Path to work and metadata files, available on master and worker nodes.",
+                        type=Path, required=True)
+    parser.add_argument("--port",
+                        help="Port used for api/web, defaults to 51234.",
+                        default=51234,
+                        type=int)
     parser.add_argument("--debug", action=argparse.BooleanOptionalAction, type=bool)
     args = parser.parse_args()
 
@@ -86,7 +106,7 @@ if __name__ == '__main__':
         raise FileNotFoundError(f"Definitions path {args.def_dir} does not exist.")
     args.work_dir.mkdir(parents=True, exist_ok=True)
 
-    lock = FileLock(LOCK_FILE, timeout=2)
+    lock = FileLock(args.work_dir / ".lock", timeout=2)
     try:
         with lock:
             # Setting up logging
@@ -96,13 +116,14 @@ if __name__ == '__main__':
             if args.debug:
                 logger.debug("Running in debug mode.")
 
-                import faulthandler
-                faulthandler.enable()
-
             # Start the server
             server = Server(Config(**vars(args)))
             server.start()
     except Timeout:
-        raise RuntimeError(f"JuQueue is already running, {LOCK_FILE} still locked!")
+        raise RuntimeError(f"JuQueue is already running, {args.work_dir / '.lock'} still locked!")
     finally:
         lock.release()
+
+
+if __name__ == '__main__':
+    main()

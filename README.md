@@ -25,17 +25,25 @@ Work in progress and potentially unstable.
     - Assume 4 nodes (each with 4 slots), each executing a single Run
     - Then 3 nodes are cancelled (along with the runs) and rescheduled to the remaining node. 
 
-## Installation and Usage
+## Installation
+### From source
 ```bash
 git clone https://github.com/tran-khoa/JuQueue juqueue
 cd juqueue
-pip install -r requirements.txt
-cp -r example_defs defs
-ln -s [WORK_DIR] work  # optional
-./juqueue.py
+pip install -e .
+
+# (optional) Start with example definitions
+cp -r example_defs ~/defs
 ```
-For now, there is no dedicated user interface, but OpenAPI is offered, 
-thus JuQueue can be controlled via FastAPI's interactive docs 
+### Via pip
+
+## Usage
+```bash
+juqueue --def-dir [PATH] --work-dir [PATH]
+```
+
+A minimal user interface is offered at [localhost:51234](http://localhost:51234).
+For more advanced usage, JuQueue can be controlled via FastAPI's interactive docs 
 available at [localhost:51234/docs](http://localhost:51234/docs).
 
 ## Documentation
