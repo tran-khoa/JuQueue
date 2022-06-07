@@ -123,8 +123,10 @@ class Backend(HasConfigField):
                     module = importlib.import_module(f"experiments.{file.stem}")
                     importlib.reload(module)
                     xp: ExperimentDef = module.Experiment()
-                except:
+                except Exception as ex:
                     logger.exception(f"Could not instantiate experiment {file.stem}, skipping...")
+                    # WORKAROUND: For some reason, loguru does not print the exception
+                    logger.error(ex)
                     continue
 
                 try:
@@ -134,8 +136,11 @@ class Backend(HasConfigField):
                     result = await self.experiment_managers[xp.name].load_experiment(xp)
                     results[xp.name] = result
                     logger.info(f"Loaded experiment {xp.name}.")
-                except:
+                except Exception as ex:
                     logger.exception(f"Could not load experiment {file.stem}, skipping...")
+                    # WORKAROUND: For some reason, loguru does not print the exception
+                    logger.error(ex)
+
                     if xp.name in self.experiment_managers:
                         del self.experiment_managers[xp.name]
             return results
