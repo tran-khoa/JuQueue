@@ -42,7 +42,7 @@ packages = ["juqueue", "juqueue_bin"]
 Homepage = "https://github.com/tran-khoa/JuQueue"
 
 [project.scripts]
-juqueue = "juqueue_bin.juqueue:main"
+juqueue = "juqueue_bin.main:main"
 
 [tool.bumpver]
 current_version = "0.0.8"
