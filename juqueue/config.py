@@ -8,6 +8,7 @@ from typing import Protocol, Union
 class Config:
     def_dir: Path
     work_dir: Path
+    port: int
     debug: bool
 
 
