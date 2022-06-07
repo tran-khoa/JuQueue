@@ -29,6 +29,7 @@ def setup_logger(log_path: Path, debug: bool):
 
     logging.basicConfig(level=log_level)
 
+    logger.remove()
     logger.add(sys.stderr, format=format_record, level=log_level, backtrace=True, diagnose=True)
     logger.add(log_path / "juqueue.log",
                format=format_record, rotation="1 day", retention="5 days", compression="gz", level=log_level)
