@@ -66,7 +66,7 @@ class Slot:
             raise
 
         try:
-            return_code = await asyncio.create_task(self.executor.execute(self.run_def, slots))
+            return_code = await self.executor.execute(self.run_def, slots)
 
             heartbeat.cancel()
             if return_code == 0:
@@ -108,14 +108,14 @@ class Slot:
         self._free()
 
     def _free(self):
-        logger.debug(f"Freeing slot {self.index}...")
         self.occupant = None
         self.run_def = None
         self.task = None
         self.executor = None
+        logger.info(f"Slot {self.index} has been freed...")
 
     def __repr__(self):
         if self.is_occupied:
-            return f"Slot(occupant={self.occupant})"
+            return f"Slot(index={self.index}, occupant={self.occupant})"
         else:
-            return "Slot(free)"
+            return f"Slot(index={self.index}, free)"

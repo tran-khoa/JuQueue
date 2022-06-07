@@ -8,12 +8,13 @@ import os
 import shlex
 import tempfile
 import typing
-from asyncio.subprocess import Process
 from pathlib import Path
 from typing import Dict, List
 
+import psutil
 from loguru import logger
 
+from .watchers import child_watcher
 from juqueue.definitions import ExecutorDef
 
 if typing.TYPE_CHECKING:
@@ -93,27 +94,34 @@ class Executor(ExecutorDef):
                                                                 stdout=stdout,
                                                                 stderr=stderr,
                                                                 executable="/bin/bash")
+                child_task = asyncio.create_task(child_watcher(process.pid))
+
                 return await process.wait()
             except asyncio.CancelledError:
                 logger.debug("Cancelling running process...")
+
                 if process is not None:
                     process.terminate()
-
-                # TODO timeout should be part of rundef
-                asyncio.create_task(self._schedule_kill(run, process, timeout=120))
+                    await asyncio.sleep(1)
             except:
                 logger.exception(f"Exception occured while executing {run}!")
                 raise
             finally:
+                child_task.cancel()
+
+                child_pids = []
+                try:
+                    child_pids = await child_task
+                except:
+                    logger.exception("Could not obtain child_pids")
+
+                for pid in child_pids:
+                    with contextlib.suppress(ProcessLookupError):
+                        p = psutil.Process(pid)
+                        p.kill()
+
                 if process is not None:
                     with contextlib.suppress(ProcessLookupError):
                         process.kill()
 
                 os.unlink(run_file.name)
-
-    async def _schedule_kill(self, run_def: RunDef, process: Process, timeout: int):
-        try:
-            await asyncio.wait_for(process.wait(), timeout)
-        except TimeoutError:
-            logger.debug(f"Process of {run_def} took longer than {timeout} seconds to terminate. Killing.")
-            process.kill()
