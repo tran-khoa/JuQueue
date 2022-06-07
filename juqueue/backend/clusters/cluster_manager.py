@@ -170,7 +170,7 @@ class ClusterManager(HasConfigProperty):
     async def cancel_run(self, run_id: str, force: bool = False) -> bool:
         async with self._scheduler_lock, holds_lock("cancel_run"):
             if run_id not in self._run_schedules:
-                raise ValueError(f"Run {run_id} not registered.")
+                return False
 
             run = self._run_schedules[run_id].run_instance
 
@@ -218,6 +218,7 @@ class ClusterManager(HasConfigProperty):
         min_jobs = self._cluster_def.min_jobs
         max_jobs = self._cluster_def.max_jobs
         current_jobs = len(self._client.scheduler_info()['workers'])
+        # TODO use local var, request sync on mismatch
 
         remaining_runs = len(self._run_schedules)
 
