@@ -49,7 +49,7 @@ class Server(HasConfigField):
         self._hypercorn_config = HypercornConfig.from_mapping({"bind": [self.address, f"localhost:{self.config.port}"]})
         self._api = FastAPI(
             title="JuQueue",
-            version="0.0.1"
+            version=juqueue.__version__
         )
         for router in API_ROUTERS:
             self._api.include_router(router)

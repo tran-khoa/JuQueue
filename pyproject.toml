@@ -32,6 +32,9 @@ dependencies = [
 ]
 requires-python = ">=3.7"
 
+[project.optional-dependencies]
+dev = ["bumpver", "pip-tools"]
+
 [tool.setuptools]
 packages = ["juqueue"]
 
