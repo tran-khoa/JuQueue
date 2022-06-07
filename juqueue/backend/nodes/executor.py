@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 
 import datetime
 import os
@@ -105,7 +106,8 @@ class Executor(ExecutorDef):
                 raise
             finally:
                 if process is not None:
-                    process.kill()
+                    with contextlib.suppress(ProcessLookupError):
+                        process.kill()
 
                 os.unlink(run_file.name)
 
