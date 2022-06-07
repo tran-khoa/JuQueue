@@ -11,23 +11,27 @@ class ExperimentDef(ABC):
     @property
     @abstractmethod
     def name(self) -> str:
-        """ Unique name of this experiment """
+        """
+        Unique name of this experiment, must be implemented by the user.
+        """
         raise NotImplementedError()
 
     @property
     @abstractmethod
     def runs(self) -> List[RunDef]:
-        """ List of run definitions """
+        """
+        List of run definitions, must be implemented by the user.
+        """
         raise NotImplementedError()
 
     @property
     def path(self) -> Path:
-        return get_backend().work_path / Path(self.name)
+        """
+        Experiment-specific work_path
 
-    @property
-    def fail_period(self) -> int:
-        """If run exits after N (default: 5) seconds with non-zero status code, consider run failed"""
-        return 5
+        It is not guaranteed that the corresponding runs use this path as their working directories.
+        """
+        return get_backend().work_path / Path(self.name)
 
     def __str__(self):
         return f"Experiment(name={self.name})"

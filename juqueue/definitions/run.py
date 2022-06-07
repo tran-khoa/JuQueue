@@ -9,10 +9,6 @@ from juqueue.definitions.executor import ExecutorDef
 from juqueue.definitions.path import PathDef, PathVars
 
 
-class PathVar:
-    pass
-
-
 class RunDef(BaseModel):
     """
     Defines the execution of a run.
@@ -66,6 +62,10 @@ class RunDef(BaseModel):
 
     @classmethod
     def create_abstract(cls, **kwargs) -> RunDef:
+        """
+        Shortcut to creating an abstract run,
+        equivalent to RunDef(name="@abstract", is_abstract=True, **kwargs)
+        """
         if any(x in kwargs for x in ("id", "is_abstract")):
             raise ValueError("Cannot define id or is_abstract.")
         return RunDef(
@@ -75,6 +75,9 @@ class RunDef(BaseModel):
         )
 
     def fork(self, run_id: str) -> RunDef:
+        """
+        Creates a deep copy of the current run definition.
+        """
         copy = self.copy(deep=True, update={
             "id": run_id,
             "is_abstract": False
@@ -84,11 +87,19 @@ class RunDef(BaseModel):
 
     @property
     def global_id(self) -> str:
+        """
+        Used by the scheduler to identify runs across experiments.
+        Should not be modified!
+        """
         if self.is_abstract:
             return "@abstract_run"
         return f"{self.experiment_name}@{self.id}"
 
     def parsed_cmd(self, work_dir: Path, **kwargs) -> List[str]:
+        """
+        Generates the command that will be executed from the definition.
+        Resolves PathDefs and appends arguments in the requested format.
+        """
         cmd = list(self.cmd)
         for key, value in self.parameters.items():
             if isinstance(value, PathDef):
@@ -104,10 +115,20 @@ class RunDef(BaseModel):
 
     @property
     def path(self) -> PathDef:
+        """
+        Run-specific work directory, will be resolved later by JuQueue.
+
+        Do NOT try to resolve (str(), as_posix()) in the definition.
+        """
         return PathVars.WORK_DIR / self.experiment_name / self.id
 
     @property
     def log_path(self) -> PathDef:
+        """
+        Run-specific log directory, will be resolved later by JuQueue.
+
+        Do NOT try to resolve (str(), as_posix()) in the definition.
+        """
         return self.path / "logs"
 
     def __str__(self):
@@ -115,4 +136,7 @@ class RunDef(BaseModel):
 
     @property
     def metadata_path(self) -> PathDef:
+        """
+        Path to metadata file, holding e.g. the current status and the date of first creation.
+        """
         return self.path / "juqueue-run.json"
