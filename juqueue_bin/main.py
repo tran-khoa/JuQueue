@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import signal
 from importlib.resources import files
 from pathlib import Path
 import socket
@@ -62,9 +63,16 @@ class Server(HasConfigField):
         self._backend = Backend(config, self.on_backend_shutdown())
         self._shutdown_event = asyncio.Event()
 
+        for s in (signal.SIGHUP, signal.SIGTERM, signal.SIGINT):
+            self._event_loop.add_signal_handler(
+                s, lambda: asyncio.create_task(self._backend.stop())
+            )
+
     def handle_exception(self, _, context):
         if 'exception' in context and context['exception'] is not None:
-            logger.opt(exception=context['exception']).error("Encountered an unhandled exception.")
+            logger.opt(exception=context['exception']).exception(f"Encountered an unhandled exception "
+                                                                 f"({type(context['exception'] )}: "
+                                                                 f"{str(context['exception'])}.")
         else:
             logger.error(f"Encountered an exception with error message {context['message']}")
 
@@ -73,6 +81,8 @@ class Server(HasConfigField):
 
         # noinspection PyTypeChecker
         await serve(self._api, self._hypercorn_config, shutdown_trigger=self._shutdown_event.wait)
+
+        self._tornado_loop.stop()
 
     def start(self):
         self._event_loop.create_task(self._initialize(), name="main")
