@@ -234,6 +234,9 @@ class ClusterManager(HasConfigProperty):
         return current_jobs, recommended_jobs
 
     async def stop(self):
+        if self._stopping:
+            return
+
         logger.info(f"Shutting down cluster {self.cluster_name}...")
         self._stopping = True
 
@@ -241,6 +244,9 @@ class ClusterManager(HasConfigProperty):
             await asyncio.wait_for(self._scheduler_lock.acquire(), timeout=5)
         except TimeoutError:
             logger.error("Timed out waiting for scheduler lock.")
+
+        if self._dask_event_handler is not None:
+            self._dask_event_handler.cancel()
 
         self._scheduler.cancel()
         with contextlib.suppress(asyncio.TimeoutError):
