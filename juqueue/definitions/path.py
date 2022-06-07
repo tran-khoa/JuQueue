@@ -43,7 +43,7 @@ class PathDef(PurePosixPath):
         return str(Path(*self.parts))
 
     def __str__(self):
-        raise ValueError("Must contextualize to Path!")
+        return self.string
 
     def as_posix(self) -> str:
         raise ValueError("Must contextualize to Path!")
