@@ -1,3 +1,5 @@
+import os
+
 from dask_jobqueue import JobQueueCluster
 from dask_jobqueue.local import (LocalCluster as DaskLocalCluster, LocalJob as DaskLocalJob)
 
