@@ -2,10 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-<<<<<<< HEAD
-=======
-import uuid
->>>>>>> ae2b21746a76c76e0cf84c93d78138ca87e1a78c
+
 from asyncio import Task
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
