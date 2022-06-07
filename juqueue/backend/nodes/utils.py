@@ -14,7 +14,7 @@ from juqueue import RunDef
 from juqueue.backend.clusters.utils import ExecutionResult
 from juqueue.backend.nodes import Executor
 from juqueue.backend.utils import RunEvent
-from juqueue.backend.utils import generic_error_handler
+from juqueue.backend.utils import strict_error_handler
 
 
 @dataclass
@@ -60,7 +60,7 @@ class Slot:
     async def _execution_coro(self, queue: dask.distributed.Queue, slots: List[int]):
         try:
             heartbeat = asyncio.create_task(self._heartbeat_coro(queue))
-            heartbeat.add_done_callback(generic_error_handler)
+            heartbeat.add_done_callback(strict_error_handler)
         except Exception as ex:
             logger.opt(exception=ex).exception("Fatal error!")
             raise

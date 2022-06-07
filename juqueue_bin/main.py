@@ -20,6 +20,7 @@ import juqueue
 import juqueue.assets.juqueue_web
 from juqueue.api import API_ROUTERS
 from juqueue.backend.backend import Backend
+from juqueue.backend.utils import standard_error_handler
 from juqueue.config import Config, HasConfigField
 from juqueue.logger import setup_logger
 
@@ -40,7 +41,7 @@ class Server(HasConfigField):
             # Nested async loops for IPython debug
             nest_asyncio.apply(self._event_loop)
 
-        self._event_loop.set_exception_handler(self.handle_exception)
+        self._event_loop.set_exception_handler(standard_error_handler)
 
         self._tornado_loop = IOLoop.current()
 
@@ -67,14 +68,6 @@ class Server(HasConfigField):
             self._event_loop.add_signal_handler(
                 s, lambda: asyncio.create_task(self._backend.stop())
             )
-
-    def handle_exception(self, _, context):
-        if 'exception' in context and context['exception'] is not None:
-            logger.opt(exception=context['exception']).exception(f"Encountered an unhandled exception "
-                                                                 f"({type(context['exception'] )}: "
-                                                                 f"{str(context['exception'])}.")
-        else:
-            logger.error(f"Encountered an exception with error message {context['message']}")
 
     async def _initialize(self):
         await self._backend.initialize()

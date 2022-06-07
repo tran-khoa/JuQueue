@@ -20,16 +20,30 @@ class CancellationReason(str, Enum):
 RunStatus = Literal['running', 'ready', 'failed', 'inactive', 'finished']
 
 
-def generic_error_handler(future: asyncio.Future):
+def standard_error_handler(_, context):
+    if 'exception' in context and context['exception'] is not None:
+        logger.opt(exception=context['exception']).error(f"Encountered an unhandled exception "
+                                                         f"({type(context['exception'])}: "
+                                                         f"{str(context['exception'])}.")
+    else:
+        logger.error(f"Encountered an exception with error message {context['message']}")
+
+
+def strict_error_handler(future: asyncio.Future):
+    """
+    Kills JuQueue if an unhandled exception occurs.
+
+    Does not handle asyncio.TimeoutError and asyncio.CancelledError
+    """
     exc = future.exception()
     if exc:
-        if isinstance(exc, asyncio.TimeoutError):
+        if isinstance(exc, asyncio.TimeoutError) or isinstance(exc, asyncio.CancelledError):
             return
 
-        from juqueue.backend.backend import Backend
+        logger.opt(exception=exc).error(f"An unexpected exception occured, stopping the backend... "
+                                        "Please report this issue!")
 
-        logger.opt(exception=exc).exception(f"An unexpected exception occured ({exc}), stopping the backend... "
-                                            "Please report this issue!")
+        from juqueue.backend.backend import Backend
         asyncio.get_running_loop().call_soon(lambda: asyncio.ensure_future(
             Backend.instance().stop()
         ))

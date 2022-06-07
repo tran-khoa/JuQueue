@@ -17,7 +17,7 @@ from juqueue.backend.clusters.run_schedule import RunSchedule
 from juqueue.backend.clusters.utils import ExecutionResult
 from juqueue.backend.nodes import NodeManagerWrapper
 from juqueue.backend.run_instance import RunInstance
-from juqueue.backend.utils import RunEvent, generic_error_handler
+from juqueue.backend.utils import RunEvent, strict_error_handler
 from juqueue.config import Config, HasConfigProperty
 from juqueue.definitions.cluster import ClusterDef
 from juqueue.exceptions import NoSlotsError, NodeDeathError, NodeNotReadyError
@@ -75,7 +75,7 @@ class ClusterManager(HasConfigProperty):
         self._dask_event_handler = None
         self._scheduler = asyncio.create_task(self._scheduler_loop(),
                                               name=f"scheduler_{cluster_name}")
-        self._scheduler.add_done_callback(generic_error_handler)
+        self._scheduler.add_done_callback(strict_error_handler)
 
         self.notify_new_slot = asyncio.Event()
 
@@ -152,7 +152,7 @@ class ClusterManager(HasConfigProperty):
             self._dask_event_handler = asyncio.create_task(
                 self._dask_event_handler_loop(), name=f"dask_event_handler_{self.cluster_name}"
             )
-            self._dask_event_handler.add_done_callback(generic_error_handler)
+            self._dask_event_handler.add_done_callback(strict_error_handler)
 
             await self.rescale()
 
@@ -275,9 +275,8 @@ class ClusterManager(HasConfigProperty):
                 await asyncio.wait_for(asyncio.gather(*shutdown_tasks, return_exceptions=True), 2)
         except asyncio.TimeoutError:
             logger.warning(f"Timed out waiting for actor {idx} to stop gracefully.")
-        except Exception as ex:
-            logger.bind(exception=ex).warning("Exception occurend during node shutdown.")
-            pass
+        except:
+            logger.exception("Exception occurend during node shutdown.")
 
         for run in affected_runs:
             await self._handle_run_event(run, RunEvent.CANCELLED_WORKER_SHUTDOWN)
@@ -306,7 +305,7 @@ class ClusterManager(HasConfigProperty):
 
         self._sync_requested = True
         sync_task = asyncio.create_task(self.__sync())
-        sync_task.add_done_callback(generic_error_handler)
+        sync_task.add_done_callback(strict_error_handler)
 
     async def __sync(self):
         """ Syncs actual running jobs to current state """
@@ -430,9 +429,8 @@ class ClusterManager(HasConfigProperty):
                             with contextlib.suppress(Exception):
                                 # Empty queue
                                 await asyncio.wait_for(queue.get(batch=True), timeout=1)
-
                         except Exception as ex:
-                            logger.opt(exception=ex).debug("Could not create sub...")
+                            logger.opt(exception=ex).exception("Could not create queue, pausing scheduler...")
                             pause_scheduler = True
                         else:
                             try:
@@ -443,7 +441,7 @@ class ClusterManager(HasConfigProperty):
                             except NodeDeathError:
                                 logger.warning(f"Node {node} has died and cannot be scheduled to.")
                             except:
-                                logger.exception("Exception")
+                                logger.exception(f"Exception while queueing {item.run_def}.")
                                 raise
                             else:
                                 if node.status == "dead":
@@ -454,7 +452,6 @@ class ClusterManager(HasConfigProperty):
                                         self._watcher_coro(node, item.run_instance, queue),
                                         name=f"watcher_{item.global_id}"
                                     )
-                                    watcher_task.add_done_callback(generic_error_handler)
                                     item.run_instance.set_running(watcher_task, node)
                                     self.notify_new_slot.clear()
 
@@ -474,12 +471,11 @@ class ClusterManager(HasConfigProperty):
                         logger.debug("Resuming scheduler after 30 seconds...")
         except asyncio.CancelledError:
             logger.debug(f"Shutting down scheduler {self.cluster_name}.")
-        except Exception as ex:
-            logger.opt(exception=ex).exception("Scheduler failure! Shutting down JuQueue!")
+        except:
+            logger.exception("Scheduler failure! Shutting down JuQueue!")
             await self._backend.stop()
 
     async def _handle_run_event(self, run: RunInstance, event: RunEvent, error: Union[Exception, int, None] = None):
-
         if event is RunEvent.RUNNING:
             run.transition("running")
         elif event is RunEvent.SUCCESS:
@@ -512,7 +508,7 @@ class ClusterManager(HasConfigProperty):
             if error is None:
                 run.logger.error("Run failed")
             elif isinstance(error, Exception):
-                run.logger.bind(exception=error).exception(f"Run failed with exception {type(error)}: {error}.")
+                run.logger.bind(exception=error).error(f"Run failed with exception {type(error)}: {error}.")
             else:
                 run.logger.error(f"Run failed with status code {error}.")
 
@@ -549,9 +545,9 @@ class ClusterManager(HasConfigProperty):
                 await asyncio.wait_for(node.stop_run(run.global_id), 5)
 
             await self._handle_run_event(run, RunEvent.CANCELLED_WORKER_DEATH)
-        except Exception as ex:
-            logger.bind(exception=ex).exception(f"Exception {ex} in watcher task for {queue.name}."
-                                                f"Stopping JuQueue, please report this issue!")
+        except:
+            logger.exception(f"Exception in watcher task for {queue.name}."
+                             f"Stopping JuQueue, please report this issue!")
             await self._backend.stop()
 
     async def _dask_event_handler_loop(self):
@@ -570,10 +566,3 @@ class ClusterManager(HasConfigProperty):
                     logger.warning(f"Ignoring unknown scheduler event {event_type}")
         except asyncio.CancelledError:
             pass
-        except Exception:
-            if self._stopping:
-                return
-
-            logger.exception("An exception occured in the dask scheduler event handler, "
-                             "exiting!")
-            await self._backend.stop()
