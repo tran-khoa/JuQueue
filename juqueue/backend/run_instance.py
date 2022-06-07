@@ -89,7 +89,8 @@ class RunInstance:
 
     def load_state_dict(self, state_dict: Dict[str, Any]):
         self.status = state_dict['status']
-        self.created_at = datetime.fromisoformat(state_dict['created_at'])
+        if 'created_at' in state_dict:
+            self.created_at = datetime.fromisoformat(state_dict['created_at'])
 
     def state_dict(self) -> Dict[str, Any]:
         return {
