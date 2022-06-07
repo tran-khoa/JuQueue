@@ -42,7 +42,7 @@ Homepage = "https://github.com/tran-khoa/JuQueue"
 juqueue = "juqueue.__main__:main"
 
 [tool.bumpver]
-current_version = "0.0.2"
+current_version = "0.0.0"
 version_pattern = "MAJOR.MINOR.PATCH"
 commit_message = "bump version {old_version} -> {new_version}"
 commit = true
@@ -53,6 +53,4 @@ push = false
 "pyproject.toml" = [
     'current_version = "{version}"',
 ]
-"juqueue/__init__.py" = [
-    "{version}"
-]
+"juqueue/__init__.py" = ["__version__ = '{version}'"]
