@@ -12,6 +12,7 @@ from loguru import logger
 
 from juqueue.backend.nodes import NodeManagerWrapper
 from juqueue.backend.utils import RunStatus
+from juqueue.logger import format_record
 
 if typing.TYPE_CHECKING:
     from juqueue.definitions import RunDef
@@ -37,6 +38,8 @@ class RunInstance:
         self.log_path.mkdir(parents=True, exist_ok=True)
 
         logger.add(self.run_path / "juqueue.log",
+                   format=format_record,
+                   rotation="1 day", retention="5 days", compression="gz",
                    filter=lambda r: r.get("run_id", None) == self.global_id)
 
     @property
