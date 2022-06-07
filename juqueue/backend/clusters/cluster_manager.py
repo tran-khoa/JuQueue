@@ -512,7 +512,7 @@ class ClusterManager(HasConfigProperty):
             if error is None:
                 run.logger.error("Run failed")
             elif isinstance(error, Exception):
-                run.logger.bind(exception=error).error(f"Run failed with exception {error}.")
+                run.logger.bind(exception=error).exception(f"Run failed with exception {type(error)}: {error}.")
             else:
                 run.logger.error(f"Run failed with status code {error}.")
 
