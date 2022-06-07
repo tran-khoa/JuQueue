@@ -35,8 +35,8 @@ requires-python = ">=3.7"
 [project.optional-dependencies]
 dev = ["bumpver", "pip-tools"]
 
-[tool.setuptools]
-packages = ["juqueue", "juqueue_bin"]
+[tool.setuptools.packages.find]
+include = ["juqueue*", "juqueue_bin*"]
 
 [project.urls]
 Homepage = "https://github.com/tran-khoa/JuQueue"
