@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "juqueue"
-version = "0.0.3"
+version = "0.0.4"
 description = "Computation and work management system for time-constrained cluster environments."
 readme = "README.md"
 authors = [{ name = "Viet Anh Khoa Tran", email = "v.tran@fz-juelich.de" }]
@@ -45,7 +45,7 @@ Homepage = "https://github.com/tran-khoa/JuQueue"
 juqueue = "juqueue.__main__:main"
 
 [tool.bumpver]
-current_version = "0.0.3"
+current_version = "0.0.4"
 version_pattern = "MAJOR.MINOR.PATCH"
 commit_message = "bump version {old_version} -> {new_version}"
 commit = true
@@ -54,7 +54,7 @@ push = false
 
 [tool.bumpver.file_patterns]
 "pyproject.toml" = [
-    'version = "{version}"',
     'current_version = "{version}"',
+    'version = "{version}"',
 ]
 "juqueue/__init__.py" = ["__version__ = '{version}'"]
