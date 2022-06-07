@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import typing
 
-__version__ = '0.0.2'
+__version__ = '0.0.3'
 
 if typing.TYPE_CHECKING:
     from backend.backend import Backend
