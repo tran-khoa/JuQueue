@@ -107,6 +107,9 @@ def main():
 
     if not args.def_dir.exists():
         raise FileNotFoundError(f"Definitions path {args.def_dir} does not exist.")
+
+    args.def_dir = args.def_dir.expanduser().resolve()
+    args.work_dir = args.work_dir.expanduser().resolve()
     args.work_dir.mkdir(parents=True, exist_ok=True)
 
     lock = FileLock(args.work_dir / ".lock", timeout=2)
