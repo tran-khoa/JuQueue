@@ -54,6 +54,7 @@ push = false
 
 [tool.bumpver.file_patterns]
 "pyproject.toml" = [
+    'version = "{version}"',
     'current_version = "{version}"',
 ]
 "juqueue/__init__.py" = ["__version__ = '{version}'"]
