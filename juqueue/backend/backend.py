@@ -7,6 +7,7 @@ import os
 import sys
 import threading
 import time
+import traceback
 import typing
 from typing import Dict, Optional, Union
 
@@ -128,6 +129,7 @@ class Backend(HasConfigField):
                     # WORKAROUND: For some reason, loguru does not print the exception
                     logger.error(f"Type: {type(ex)}")
                     logger.error(ex)
+                    traceback.print_exc()
                     continue
 
                 try:
@@ -142,6 +144,7 @@ class Backend(HasConfigField):
                     # WORKAROUND: For some reason, loguru does not print the exception
                     logger.error(f"Type: {type(ex)}")
                     logger.error(ex)
+                    traceback.print_exc()
 
                     if xp.name in self.experiment_managers:
                         del self.experiment_managers[xp.name]
