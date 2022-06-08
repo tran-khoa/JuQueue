@@ -126,6 +126,7 @@ class Backend(HasConfigField):
                 except Exception as ex:
                     logger.exception(f"Could not instantiate experiment {file.stem}, skipping...")
                     # WORKAROUND: For some reason, loguru does not print the exception
+                    logger.error(f"Type: {type(ex)}")
                     logger.error(ex)
                     continue
 
@@ -139,6 +140,7 @@ class Backend(HasConfigField):
                 except Exception as ex:
                     logger.exception(f"Could not load experiment {file.stem}, skipping...")
                     # WORKAROUND: For some reason, loguru does not print the exception
+                    logger.error(f"Type: {type(ex)}")
                     logger.error(ex)
 
                     if xp.name in self.experiment_managers:
