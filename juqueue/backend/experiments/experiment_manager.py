@@ -69,6 +69,17 @@ class ExperimentManager(HasConfigProperty):
 
             affected_clusters = set()
 
+            failed = False
+            found_ids = set()
+            for run_def in self._def.runs:
+                if run_def.id in found_ids:
+                    logger.error(f"Run ID {run_def.id} of {run_def.experiment_name} occurs in more than one run!")
+                    failed = True
+                else:
+                    found_ids.add(run_def.id)
+            if failed:
+                raise ValueError("Experiment definition contains runs with duplicate ids.")
+
             for run_def in self._def.runs:
                 errors = self.validate_run_def(run_def)
                 if errors:
