@@ -73,7 +73,7 @@ class ExperimentManager(HasConfigProperty):
             found_ids = set()
             for run_def in self._def.runs:
                 if run_def.id in found_ids:
-                    logger.error(f"Run ID {run_def.id} of {run_def.experiment_name} occurs in more than one run!")
+                    logger.error(f"Run ID {run_def.id} of {run_def.experiment_name} used by more than one run!")
                     failed = True
                 else:
                     found_ids.add(run_def.id)
