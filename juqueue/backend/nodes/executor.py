@@ -13,6 +13,7 @@ from typing import Dict, List
 
 import psutil
 from loguru import logger
+from psutil import NoSuchProcess
 
 from .watchers import child_watcher
 from juqueue.definitions import ExecutorDef
@@ -116,12 +117,12 @@ class Executor(ExecutorDef):
                     logger.exception("Could not obtain child_pids")
 
                 for pid in child_pids:
-                    with contextlib.suppress(ProcessLookupError):
+                    with contextlib.suppress(NoSuchProcess):
                         p = psutil.Process(pid)
                         p.kill()
 
                 if process is not None:
-                    with contextlib.suppress(ProcessLookupError):
+                    with contextlib.suppress(NoSuchProcess):
                         process.kill()
 
                 os.unlink(run_file.name)
