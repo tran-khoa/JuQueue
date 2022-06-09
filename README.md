@@ -1,7 +1,8 @@
 # JuQueue
 Computation and workflow management system for **time-constrained** cluster environments.
-This system is aimed at compute clusters, on which users are accounted for the runtime of an entire node, 
-rather than the resources requested by a single job (e.g. JURECA).
+This system is aimed at compute clusters, on which users are accounted 
+for the runtime of an entire node or *minimum resource allocation units* 
+(e.g. at the Jülich Supercomputing Centre (JSC)).
 
 Work in progress and potentially unstable.
 
