@@ -45,7 +45,7 @@ class NodeManagerInstance(NodeManager):
         logger.add(
             work_path / "logs" / "worker.log",
             rotation="1 day", compression="gz",
-            format="{time} {level} {extra[name]} {extra[run_id]} {message}"
+            format="{time} {level} {message}"
         )
         self.name = name
         self.node = platform.node()
