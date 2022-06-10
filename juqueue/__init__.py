@@ -32,3 +32,4 @@ def get_backend() -> Backend:
 
 
 from .definitions import RunDef, ExperimentDef, ExecutorDef
+import juqueue.definitions.utils as DefUtils

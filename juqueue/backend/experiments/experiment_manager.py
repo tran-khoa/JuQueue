@@ -48,8 +48,8 @@ class ExperimentManager(HasConfigProperty):
     def validate_run_def(self, run_def: RunDef) -> List[str]:
         issues = []
 
-        if run_def.id.startswith("@"):
-            issues.append(f"Invalid run_id {run_def.id}!")
+        if "@" in run_def.id:
+            issues.append(f"You cannot use '@' in your run id. Invalid run_id {run_def.id}!")
         if run_def.experiment_name != self.experiment_name:
             issues.append(f"{run_def} has invalid experiment name {run_def.experiment_name}, "
                           f"must be {self.experiment_name}!")
