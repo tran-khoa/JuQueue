@@ -117,7 +117,7 @@ class RunDef(BaseModel):
         Generates the command that will be executed from the definition.
         Resolves PathDefs and appends arguments in the requested format.
         """
-        cmd = self.resolve_parameters(deepcopy(self.parameters), work_dir)
+        cmd = self.resolve_parameters(deepcopy(self.cmd), work_dir)
         for key, value in self.resolve_parameters(self.parameters, work_dir).items():
             if self.parameter_format == "argparse":
                 cmd.extend([f"--{key.replace('_', '-')}", str(value)])
