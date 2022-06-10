@@ -25,7 +25,7 @@ class ClusterDef(ABC):
 
         if "extra" not in self._kwargs:
             self._kwargs["extra"] = []
-        self._kwargs["extra"].extend(["--resources", "num_actors=1"])
+        self._kwargs["extra"].extend(["--resources num_actors=1"])
 
     @abstractmethod
     def create_instance(self) -> JobQueueCluster:
