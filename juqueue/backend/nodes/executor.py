@@ -122,7 +122,7 @@ class Executor(ExecutorDef):
                         p.kill()
 
                 if process is not None:
-                    with contextlib.suppress(NoSuchProcess):
+                    with contextlib.suppress(ProcessLookupError):
                         process.kill()
 
                 os.unlink(run_file.name)
