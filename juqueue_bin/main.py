@@ -48,7 +48,9 @@ class Server(HasConfigField):
         self._ip = socket.gethostbyname(socket.gethostname())
         self.address = f"{self._ip}:{self.config.port}"
 
-        self._hypercorn_config = HypercornConfig.from_mapping({"bind": [self.address, f"localhost:{self.config.port}"]})
+        self._hypercorn_config = HypercornConfig.from_mapping({"bind": [self.address,
+                                                                        f"localhost:{self.config.port}",
+                                                                        f"unix:{config.work_dir / 'juqueue.sock'}"]})
         self._api = FastAPI(
             title="JuQueue",
             version=juqueue.__version__

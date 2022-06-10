@@ -1,3 +1,5 @@
+import math
+
 from dask_jobqueue import SLURMCluster as DaskSLURMCluster
 from dask_jobqueue.core import JobQueueCluster
 from dask_jobqueue.slurm import SLURMJob as DaskSLURMJob
@@ -16,8 +18,8 @@ class _SLURMJob(DaskSLURMJob):
 class SLURMClusterDef(ClusterDef):
     def __init__(self, *,
                  name: str,
-                 max_jobs: int,
                  num_slots: int,
+                 max_jobs: int = math.inf,
                  **kwargs):
         super().__init__(name=name, max_jobs=max_jobs, num_slots=num_slots, **kwargs)
 

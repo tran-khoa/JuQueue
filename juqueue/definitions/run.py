@@ -106,7 +106,7 @@ class RunDef(BaseModel):
                 value = value.contextualize(work_dir=work_dir, **kwargs)
 
             if self.parameter_format == "argparse":
-                cmd.extend([f"--{key}", str(value)])
+                cmd.extend([f"--{key.replace('_', '-')}", str(value)])
             elif self.parameter_format == "eq":
                 cmd.append(f"{key}={value}")
             else:

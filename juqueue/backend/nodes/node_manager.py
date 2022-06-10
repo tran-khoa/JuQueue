@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Protocol
 
 from loguru import logger
 
-from juqueue.backend.nodes.utils import Slot
+from juqueue.backend.nodes.slot import Slot
 from juqueue.backend.nodes import Executor
 from juqueue.exceptions import NoSlotsError
 

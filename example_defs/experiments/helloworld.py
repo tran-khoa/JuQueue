@@ -1,10 +1,8 @@
-from dataclasses import dataclass
 from typing import List
 
 from juqueue import ExperimentDef, RunDef, ExecutorDef
 
 
-@dataclass
 class Experiment(ExperimentDef):
     @property
     def name(self) -> str:
