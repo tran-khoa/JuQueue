@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
-from typing import Dict, List, Literal, Union
+from typing import Any, Dict, List, Literal, Union
 
 from pydantic import BaseModel, Field
 
@@ -95,16 +96,29 @@ class RunDef(BaseModel):
             return "@abstract_run"
         return f"{self.experiment_name}@{self.id}"
 
+    def resolve_parameters(self, obj: Any, work_dir: Path, **kwargs):
+        """
+        Returns a parameter dictionary with resolved path definitions.
+        """
+        if isinstance(obj, PathDef):
+            return obj.contextualize(work_dir=work_dir, **kwargs)
+        if isinstance(obj, dict):
+            return {k: self.resolve_parameters(v, work_dir, **kwargs) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [self.resolve_parameters(v, work_dir, **kwargs) for v in obj]
+        if isinstance(obj, tuple):
+            return tuple(self.resolve_parameters(v, work_dir, **kwargs) for v in obj)
+        if isinstance(obj, set):
+            return {self.resolve_parameters(v, work_dir, **kwargs) for v in obj}
+        return obj
+
     def parsed_cmd(self, work_dir: Path, **kwargs) -> List[str]:
         """
         Generates the command that will be executed from the definition.
         Resolves PathDefs and appends arguments in the requested format.
         """
-        cmd = list(self.cmd)
-        for key, value in self.parameters.items():
-            if isinstance(value, PathDef):
-                value = value.contextualize(work_dir=work_dir, **kwargs)
-
+        cmd = self.resolve_parameters(deepcopy(self.parameters), work_dir)
+        for key, value in self.resolve_parameters(self.parameters, work_dir).items():
             if self.parameter_format == "argparse":
                 cmd.extend([f"--{key.replace('_', '-')}", str(value)])
             elif self.parameter_format == "eq":
