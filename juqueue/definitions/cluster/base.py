@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 
 from dask_jobqueue import JobQueueCluster
 from loguru import logger
@@ -25,10 +25,11 @@ class ClusterDef(ABC):
 
         if "extra" not in self._kwargs:
             self._kwargs["extra"] = []
-        self._kwargs["extra"].extend(["--resources", "slots=1"])
+        self._kwargs["extra"].extend(["--resources", "num_actors=1"])
 
+    @abstractmethod
     def create_instance(self) -> JobQueueCluster:
-        pass
+        raise NotImplementedError()
 
     def __eq__(self, other):
         if not isinstance(other, ClusterDef):
