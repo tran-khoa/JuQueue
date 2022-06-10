@@ -21,6 +21,10 @@ class SLURMClusterDef(ClusterDef):
                  num_slots: int,
                  max_jobs: int = math.inf,
                  **kwargs):
+        if "extra" not in kwargs:
+            kwargs["extra"] = []
+        kwargs["extra"].extend(["--resources", "num_actors=1"])
+
         super().__init__(name=name, max_jobs=max_jobs, num_slots=num_slots, **kwargs)
 
     def create_instance(self) -> JobQueueCluster:

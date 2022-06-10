@@ -102,7 +102,7 @@ class NodeManagerWrapper(NodeManager):
                                                                   work_path=self.cluster_manager.work_path,
                                                                   actor=True,
                                                                   key=f"NodeManager-{self.name}",
-                                                                  resources={"slots": 1})
+                                                                  resources={"num_actors": 1})
         except (asyncio.CancelledError, concurrent.futures.CancelledError):
             logger.info(f"Cancelling creation of NodeManager {self.name}.")
             self.instance = None
