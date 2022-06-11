@@ -85,8 +85,8 @@ class NodeManagerInstance(NodeManager):
                 raise NoSlotsError()
 
             return key
-        except Exception as ex:
-            logger.opt(exception=ex).error("Exception in queue_run")
+        except:
+            logger.exception("Exception in queue_run")
             raise
 
     async def stop_run(self, run_id: str) -> bool:
@@ -97,6 +97,6 @@ class NodeManagerInstance(NodeManager):
                     await slot.cancel()
                     success = True
             return success
-        except Exception as ex:
-            logger.opt(exception=ex).error("Exception in queue_run")
+        except:
+            logger.exception("Exception in queue_run")
             raise

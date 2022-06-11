@@ -53,16 +53,16 @@ class Slot:
             while True:
                 await queue.put(ExecutionResult.pack(RunEvent.RUNNING))
                 await asyncio.sleep(60)
-        except Exception as ex:
-            logger.opt(exception=ex).exception("Exception in heartbeat task.")
+        except:
+            logger.exception("Exception in heartbeat task.")
             raise
 
     async def _execution_coro(self, queue: dask.distributed.Queue, slots: List[int]):
         try:
             heartbeat = asyncio.create_task(self._heartbeat_coro(queue))
             heartbeat.add_done_callback(strict_error_handler)
-        except Exception as ex:
-            logger.opt(exception=ex).exception("Fatal error!")
+        except:
+            logger.exception("Fatal error!")
             raise
 
         try:
@@ -79,7 +79,7 @@ class Slot:
 
             heartbeat.cancel()
             raise
-        except Exception as ex:
+        except:
             logger.exception(f"An exception occured on {self}...")
 
             heartbeat.cancel()

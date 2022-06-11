@@ -16,6 +16,5 @@ async def stop():
     logger.remove()
 
     IOLoop.current().call_later(1, lambda: IOLoop.current().stop())
-    asyncio.get_event_loop().set_exception_handler(None)
 
     return "Server stopped"

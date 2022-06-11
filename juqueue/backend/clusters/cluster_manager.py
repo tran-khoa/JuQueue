@@ -440,8 +440,8 @@ class ClusterManager(HasConfigProperty):
                             with contextlib.suppress(Exception):
                                 # Empty queue
                                 await asyncio.wait_for(queue.get(batch=True), timeout=1)
-                        except Exception as ex:
-                            logger.opt(exception=ex).exception("Could not create queue, pausing scheduler...")
+                        except:
+                            logger.exception("Could not create queue, pausing scheduler...")
                             pause_scheduler = True
                         else:
                             try:
@@ -519,7 +519,7 @@ class ClusterManager(HasConfigProperty):
             if error is None:
                 run.logger.error("Run failed")
             elif isinstance(error, Exception):
-                run.logger.bind(exception=error).error(f"Run failed with exception {type(error)}: {error}.")
+                run.logger.opt(exception=error).error(f"Run failed with exception {type(error)}: {error}.")
             else:
                 run.logger.error(f"Run failed with status code {error}.")
 

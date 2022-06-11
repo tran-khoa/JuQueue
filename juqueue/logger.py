@@ -17,6 +17,9 @@ def format_record(record: Dict) -> str:
         f"{run_id}"
         "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>\n"
     )
+
+    if "exception" in record:
+        format_string += "{exception}"
     return format_string
 
 
