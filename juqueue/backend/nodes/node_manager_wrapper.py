@@ -26,12 +26,13 @@ class NodeManagerWrapper(NodeManager):
     def __init__(self,
                  cluster_manager: ClusterManager,
                  index: int,
+                 worker: str,
                  heartbeat_interval: int = 30):
         self.cluster_manager = cluster_manager
         self.index = index
         self.heartbeat_interval = heartbeat_interval
+        self._worker = worker
 
-        self._address = None
         self._stopped = Event()
         self._task_actor_death = asyncio.create_task(self._heartbeat_coro(), name=f"Heartbeat-NodeManager-{self.name}")
 
@@ -65,12 +66,7 @@ class NodeManagerWrapper(NodeManager):
 
     @property
     def worker(self) -> Optional[str]:
-        if self._address:
-            return self._address
-
-        if isinstance(self.instance, Actor):
-            self._address = self.instance._address  # noqa
-        return self._address
+        return self._worker
 
     def block_until_death(self) -> asyncio.Task:
         return self._task_actor_death
@@ -101,6 +97,8 @@ class NodeManagerWrapper(NodeManager):
                                                                   num_slots=self.cluster_manager.num_slots,
                                                                   work_path=self.cluster_manager.work_path,
                                                                   actor=True,
+                                                                  workers=[self.worker],
+                                                                  allow_other_workers=False,
                                                                   resources={"num_actors": 1})
         except (asyncio.CancelledError, concurrent.futures.CancelledError):
             logger.info(f"Cancelling creation of NodeManager {self.name}.")

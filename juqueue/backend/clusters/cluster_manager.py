@@ -40,9 +40,18 @@ class CallbackPlugin(SchedulerPlugin):
         super(CallbackPlugin, self).__init__()
         self.cluster_name = cluster_name
 
+    @property
+    def queue(self) -> asyncio.Queue:
+        return Queue(f"event_{self.cluster_name}")
+
     async def remove_worker(self, scheduler: Scheduler, worker: str):
-        await Queue(f"event_{self.cluster_name}").put(
+        await self.queue.put(
             ("remove", worker)
+        )
+
+    async def add_worker(self, scheduler: Scheduler, worker: str):
+        await self.queue.put(
+            ("add", worker)
         )
 
 
@@ -217,8 +226,6 @@ class ClusterManager(HasConfigProperty):
     async def rescale(self) -> Tuple[int, int]:
         min_jobs = self._cluster_def.min_jobs
         max_jobs = self._cluster_def.max_jobs
-        current_jobs = len(self._client.scheduler_info()['workers'])
-        # TODO use local var, request sync on mismatch
 
         remaining_runs = len(self._run_schedules)
 
@@ -226,13 +233,13 @@ class ClusterManager(HasConfigProperty):
         recommended_jobs = min(recommended_jobs, max_jobs)
         recommended_jobs = max(recommended_jobs, min_jobs)
 
-        if current_jobs != recommended_jobs:
+        if self._num_node_requested != recommended_jobs:
             logger.info(f"Rescaling {self.cluster_name}(max_jobs={max_jobs}) "
-                        f"from {current_jobs} to {recommended_jobs} jobs.")
+                        f"from {self._num_node_requested} to {recommended_jobs} jobs.")
             self._num_node_requested = recommended_jobs
             self.request_sync()
 
-        return current_jobs, recommended_jobs
+        return self._num_node_requested, recommended_jobs
 
     async def stop(self):
         if self._stopping:
@@ -262,11 +269,11 @@ class ClusterManager(HasConfigProperty):
         await self._client.close(timeout=5)
         logger.info(f"Cluster {self.cluster_name} shut down.")
 
-    def _add_node(self):
+    def _add_node(self, worker: str):
         idx = self._next_node_idx
         self._next_node_idx += 1
 
-        self._nodes[idx] = NodeManagerWrapper(self, index=idx)
+        self._nodes[idx] = NodeManagerWrapper(self, index=idx, worker=worker)
 
     async def _remove_node(self, idx: int):
         """
@@ -327,11 +334,7 @@ class ClusterManager(HasConfigProperty):
                         await self._cluster.scale_down([dead_node.worker])
                 self._nodes = {idx: node for idx, node in self._nodes.items() if node.status != "dead"}
 
-                # Update to current requested number of nodes
-                while len(self._nodes) < self._num_node_requested:
-                    self._add_node()
-                    self.notify_new_slot.set()
-
+                # Remove nodes
                 nodes_removed = set()
                 while len(self._nodes) > self._num_node_requested:
                     idx, importance = await self._next_removable_node()
@@ -341,6 +344,7 @@ class ClusterManager(HasConfigProperty):
                     await self._remove_node(idx)
                     assert idx not in self._nodes
 
+                # Takes care of adding nodes
                 await self._cluster.scale(jobs=self._num_node_requested)
         finally:
             self._sync_requested = False
@@ -569,6 +573,9 @@ class ClusterManager(HasConfigProperty):
                         if node.worker == args:
                             logger.debug(f"Dask reported node {node_idx} removed from cluster {self.cluster_name}.")
                             node.mark_stopped()
+                elif event_type == "add":
+                    logger.info(f"Worker {args} registered.")
+                    self._add_node(worker=args)
                 else:
                     logger.warning(f"Ignoring unknown scheduler event {event_type}")
         except asyncio.CancelledError:
