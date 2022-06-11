@@ -79,7 +79,7 @@ class Slot:
 
             heartbeat.cancel()
             raise
-        except:
+        except Exception as ex:
             logger.exception(f"An exception occured on {self}...")
 
             heartbeat.cancel()

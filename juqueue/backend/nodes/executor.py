@@ -72,8 +72,10 @@ class Executor(ExecutorDef):
         env.update(self.environment(run, slots))
 
         path = run.path.contextualize(self)
-
         log_path = run.log_path.contextualize(self)
+
+        path.mkdir(parents=True, exist_ok=True)
+        log_path.mkdir(parents=True, exist_ok=True)
 
         with (log_path / "stdout.log").open("at") as stdout, (log_path / "stderr.log").open("at") as stderr:
             stderr.write(f"---------- {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ----------\n")
