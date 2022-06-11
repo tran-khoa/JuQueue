@@ -33,10 +33,11 @@ class NodeManagerWrapper(NodeManager):
         self.heartbeat_interval = heartbeat_interval
         self._worker = worker
 
-        self._stopped = Event()
-        self._task_actor_death = asyncio.create_task(self._heartbeat_coro(), name=f"Heartbeat-NodeManager-{self.name}")
-
         self.instance = asyncio.create_task(self._start_coro(), name=f"Starting-NodeManager-{self.name}")
+
+
+        self._stopped = Event()
+        self._heartbeat_task = asyncio.create_task(self._heartbeat_coro(), name=f"Heartbeat-NodeManager-{self.name}")
 
     @property
     def cluster_name(self):
@@ -69,7 +70,7 @@ class NodeManagerWrapper(NodeManager):
         return self._worker
 
     def block_until_death(self) -> asyncio.Task:
-        return self._task_actor_death
+        return self._heartbeat_task
 
     def mark_stopped(self):
         if not self._stopped.is_set():
@@ -111,9 +112,12 @@ class NodeManagerWrapper(NodeManager):
             self.cluster_manager.notify_new_slot.set()
 
     async def _heartbeat_coro(self):
+        while isinstance(self.instance, asyncio.Task):
+            await asyncio.sleep(15)
+
         while True:
-            if self.instance is None or isinstance(self.instance, asyncio.Task):
-                await asyncio.sleep(self.heartbeat_interval)
+            if self.instance is None:
+                self._stopped.set()
 
             if self.instance._future.status not in ("finished", "pending"):  # noqa
                 self._stopped.set()
@@ -152,9 +156,9 @@ class NodeManagerWrapper(NodeManager):
                 timeout_task = asyncio.create_task(asyncio.sleep(30))
 
                 async def f():
-                    done, _ = await asyncio.wait([actor_future, self._task_actor_death, timeout_task],
+                    done, _ = await asyncio.wait([actor_future, self._heartbeat_task, timeout_task],
                                                  return_when=FIRST_COMPLETED)
-                    if self._task_actor_death in done:
+                    if self._heartbeat_task in done:
                         self.mark_stopped()
                         raise NodeDeathError("Notified of node death")
                     elif timeout_task in done:
