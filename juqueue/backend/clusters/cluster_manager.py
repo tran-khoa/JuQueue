@@ -557,7 +557,7 @@ class ClusterManager(HasConfigProperty):
 
             await self._handle_run_event(run, RunEvent.CANCELLED_WORKER_DEATH)
         except:
-            logger.exception(f"Exception in watcher task for {queue.name}."
+            logger.exception(f"Exception in watcher task for {queue.name}. "
                              f"Stopping JuQueue, please report this issue!")
             await self._backend.stop()
 
