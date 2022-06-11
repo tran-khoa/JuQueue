@@ -118,8 +118,7 @@ class NodeManagerWrapper(NodeManager):
         while True:
             if self.instance is None:
                 self._stopped.set()
-
-            if self.instance._future.status not in ("finished", "pending"):  # noqa
+            elif self.instance._future.status not in ("finished", "pending"):  # noqa
                 self._stopped.set()
 
             if self._stopped.is_set():
