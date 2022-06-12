@@ -47,11 +47,16 @@ class Server(HasConfigField):
         self._tornado_loop = IOLoop.current()
 
         self._ip = socket.gethostbyname(socket.gethostname())
-        self.address = f"{self._ip}:{self.config.port}"
 
-        self._hypercorn_config = HypercornConfig.from_mapping({"bind": [self.address,
-                                                                        f"localhost:{self.config.port}",
-                                                                        f"unix:juqueue.sock"]})
+        assert self.config.port > 0 or self.config.unix_socket is not None
+
+        self.address = f"{self._ip}:{self.config.port}"
+        binds = []
+        if self.config.port > 0:
+            binds.extend([self.address, f"localhost:{self.config.port}"])
+        if self.config.unix_socket:
+            binds.append(f"unix:{self.config.unix_socket.as_posix()}")
+        self._hypercorn_config = HypercornConfig.from_mapping({"bind": binds})
         self._api = FastAPI(
             title="JuQueue",
             version=juqueue.__version__
@@ -105,9 +110,14 @@ def main():
                         help="Path to work and metadata files, available on master and worker nodes.",
                         type=Path, required=True)
     parser.add_argument("--port",
-                        help="Port used for api/web, defaults to 51234.",
+                        help="Optional port used for api/web, defaults to 51234. Set to -1 to disable.",
                         default=51234,
                         type=int)
+    parser.add_argument("--unix-socket",
+                        help="Optional path to unix socket as an alternative to port-based access.",
+                        default=None,
+                        required=False,
+                        type=Path)
     parser.add_argument("--debug", action=argparse.BooleanOptionalAction, type=bool)
     args = parser.parse_args()
 

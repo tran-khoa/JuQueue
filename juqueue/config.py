@@ -9,6 +9,7 @@ class Config:
     def_dir: Path
     work_dir: Path
     port: int
+    unix_socket: Path
     debug: bool
 
 
