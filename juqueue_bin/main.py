@@ -10,6 +10,7 @@ import socket
 import nest_asyncio
 import uvloop
 from fastapi import APIRouter, FastAPI
+from fastapi.routing import APIRoute
 from filelock import FileLock, Timeout
 from hypercorn.asyncio import Config as HypercornConfig, serve
 from loguru import logger
@@ -50,7 +51,7 @@ class Server(HasConfigField):
 
         self._hypercorn_config = HypercornConfig.from_mapping({"bind": [self.address,
                                                                         f"localhost:{self.config.port}",
-                                                                        f"unix:{config.work_dir / 'juqueue.sock'}"]})
+                                                                        f"unix:juqueue.sock"]})
         self._api = FastAPI(
             title="JuQueue",
             version=juqueue.__version__
@@ -62,6 +63,9 @@ class Server(HasConfigField):
         self._api.mount("/",
                         StaticFiles(directory=files(juqueue.assets.juqueue_web), html=True),  # noqa
                         name="app")
+        for route in self._api.routes:
+            if isinstance(route, APIRoute):
+                route.operation_id = route.name  # in this case, 'read_items'
 
         self._backend = Backend(config, self.on_backend_shutdown())
         self._shutdown_event = asyncio.Event()
