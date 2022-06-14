@@ -4,6 +4,8 @@
 #
 #    pip-compile pyproject.toml
 #
+aioconsole==0.4.1
+    # via juqueue (pyproject.toml)
 anyio==3.6.1
     # via starlette
 click==8.1.3
