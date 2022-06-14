@@ -12,11 +12,8 @@ from ..utils import SuccessResponse
 router = APIRouter(tags=["Experiment"])
 
 
-class RunList(BaseModel):
-    runs: List[str]
-
-
-@router.put("/experiment/{experiment_name}/resume_runs", response_model=SuccessResponse)
+@router.put("/experiment/{experiment_name}/resume_runs",
+            response_model=SuccessResponse)
 async def resume_runs(experiment_name: str, run_ids: List[str] = Body()):
     """
     Resumes runs of given experiment if not running already
@@ -33,7 +30,8 @@ async def resume_runs(experiment_name: str, run_ids: List[str] = Body()):
         return SuccessResponse.with_success()
 
 
-@router.put("/experiment/{experiment_name}/cancel_runs", response_model=SuccessResponse)
+@router.put("/experiment/{experiment_name}/cancel_runs",
+            response_model=SuccessResponse)
 async def cancel_runs(experiment_name: str, run_ids: List[str] = Body(), force: bool = Body()):
     """
     Cancels runs of given experiment.

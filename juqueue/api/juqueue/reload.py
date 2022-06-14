@@ -6,7 +6,8 @@ from ..utils import SuccessResponse
 router = APIRouter(tags=["JuQueue"])
 
 
-@router.put("/juqueue/reload_experiments")
+@router.put("/juqueue/reload_experiments",
+            response_model=SuccessResponse)
 async def reload_experiments():
     try:
         await Backend.instance().load_experiments()
@@ -15,7 +16,8 @@ async def reload_experiments():
     return SuccessResponse.with_success()
 
 
-@router.put("/juqueue/reload_clusters")
+@router.put("/juqueue/reload_clusters",
+            response_model=SuccessResponse)
 async def reload_clusters():
     try:
         await Backend.instance().load_clusters()

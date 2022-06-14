@@ -32,6 +32,8 @@ class Backend(HasConfigField):
     experiment_managers: Dict[str, ExperimentManager]
     cluster_managers: Dict[str, ClusterManager]
 
+    _observers: Dict[str, asyncio.Event]
+
     @classmethod
     def instance(cls) -> Backend:
         return get_backend()
@@ -58,6 +60,7 @@ class Backend(HasConfigField):
             dask.config.set({"logging.distributed": "debug"})
 
         self._on_shutdown_handler = on_shutdown
+        self._observers = {}
 
     async def initialize(self):
         try:
@@ -188,3 +191,14 @@ class Backend(HasConfigField):
         thread = threading.Thread(target=_kill, daemon=True)
         thread.start()
         return thread
+
+    def register_observer(self, name: str, event: asyncio.Event):
+        self._observers[name] = event
+
+    def unregister_observer(self, name: str):
+        if name in self._observers:
+            del self._observers[name]
+
+    def notify_observers(self):
+        for event in self._observers.values():
+            event.set()

@@ -1,6 +1,9 @@
 from fastapi import APIRouter
 from loguru import logger
+from typing import Dict, Literal, Optional, List
+from pydantic import BaseModel
 
+from juqueue import RunDef
 from juqueue.api.utils import SuccessResponse
 from juqueue.backend.backend import Backend
 from juqueue.exceptions import NodeDeathError, NodeNotReadyError
@@ -8,7 +11,25 @@ from juqueue.exceptions import NodeDeathError, NodeNotReadyError
 router = APIRouter(tags=["Cluster"])
 
 
-@router.get("/clusters")
+class SlotInfo(BaseModel):
+    index: int
+    occupant: Optional[str]
+    run_def: Optional[RunDef]
+
+
+class NodeInfo(BaseModel):
+    status: Literal["queued", "dead", "alive"]
+    worker: str
+    slots: List[SlotInfo]
+
+
+class ClusterInfo(BaseModel):
+    nodes_requested: int
+    nodes: Dict[str, NodeInfo]
+
+
+@router.get("/clusters",
+            response_model=Dict[str, ClusterInfo])
 async def get_clusters():
     result = {}
 
@@ -35,10 +56,22 @@ async def get_clusters():
     return result
 
 
-@router.get("/clusters/{cluster_name}/rescale")
+@router.get("/clusters/{cluster_name}/rescale",
+            response_model=SuccessResponse)
 async def rescale_cluster(cluster_name: str):
     try:
         await Backend.instance().get_cluster_manager(cluster_name).rescale()
+    except Exception as ex:
+        return SuccessResponse.from_exception(ex)
+    else:
+        return SuccessResponse.with_success()
+
+
+@router.get("/clusters/{cluster_name}/sync",
+            response_model=SuccessResponse)
+async def sync_cluster(cluster_name: str):
+    try:
+        await Backend.instance().get_cluster_manager(cluster_name).request_sync()
     except Exception as ex:
         return SuccessResponse.from_exception(ex)
     else:

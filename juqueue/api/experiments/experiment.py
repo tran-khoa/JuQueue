@@ -1,7 +1,6 @@
 from typing import Dict
 
 from fastapi import APIRouter
-from pydantic import BaseModel
 
 from juqueue.backend.backend import Backend
 from juqueue.models import Experiment, Run
@@ -10,6 +9,7 @@ router = APIRouter(tags=["Experiment"])
 
 
 @router.get("/experiments",
+            response_model=Dict[str, Experiment],
             name="Get experiments")
 async def get_experiments():
     """

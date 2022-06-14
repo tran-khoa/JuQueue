@@ -28,7 +28,8 @@ dependencies = [
     "fastapi~=0.78.0",
     "hypercorn~=0.13.2",
     "pydantic~=1.9.1",
-    "uvloop~=0.16.0"
+    "uvloop~=0.16.0",
+    "aioconsole"
 ]
 requires-python = ">=3.7"
 

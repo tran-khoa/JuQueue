@@ -35,7 +35,6 @@ class NodeManagerWrapper(NodeManager):
 
         self.instance = asyncio.create_task(self._start_coro(), name=f"Starting-NodeManager-{self.name}")
 
-
         self._stopped = Event()
         self._heartbeat_task = asyncio.create_task(self._heartbeat_coro(), name=f"Heartbeat-NodeManager-{self.name}")
 

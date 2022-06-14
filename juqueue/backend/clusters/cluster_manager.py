@@ -487,6 +487,7 @@ class ClusterManager(HasConfigProperty):
             await self._backend.stop()
 
     async def _handle_run_event(self, run: RunInstance, event: RunEvent, error: Union[Exception, int, None] = None):
+        self._backend.notify_observers()
         if event is RunEvent.RUNNING:
             run.transition("running")
         elif event is RunEvent.SUCCESS:
