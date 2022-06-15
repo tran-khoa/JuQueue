@@ -175,5 +175,11 @@ class ExperimentManager(HasConfigProperty):
     async def _update_run(self, run: RunInstance, run_def: RunDef):
         await self.get_cluster_manager(run).update_run(run, run_def)
 
+    async def remove_experiment(self):
+        for run in self._runs.values():
+            if run.status in ("running", "ready"):
+                cm = self.get_cluster_manager(run)
+                await cm.cancel_run(run.global_id, force=True)
+
     async def stop(self):
         logger.info(f"ExperimentManager {self.experiment_name} shut down.")

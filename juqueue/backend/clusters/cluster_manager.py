@@ -296,7 +296,6 @@ class ClusterManager(HasConfigProperty):
             await self._handle_run_event(run, RunEvent.CANCELLED_WORKER_SHUTDOWN)
 
         node = self._nodes[idx]
-        del self._nodes[idx]
 
         await node.request_shutdown()
         if node.worker:
@@ -327,7 +326,7 @@ class ClusterManager(HasConfigProperty):
             async with self._scheduler_lock, holds_lock("__sync"):
                 logger.debug(f"Synchronizing {self.cluster_name}...")
 
-                # Check for dead nodes and make sure they are dead
+                # Check for dead nodes and make sure they are removed
                 dead_nodes = {idx: node for idx, node in self._nodes.items() if node.status == "dead"}
                 for dead_node in dead_nodes.values():
                     if dead_node.worker:
@@ -342,7 +341,7 @@ class ClusterManager(HasConfigProperty):
 
                     logger.info(f"Removing node {idx} with importance {importance}...")
                     await self._remove_node(idx)
-                    assert idx not in self._nodes
+                    del self._nodes[idx]
 
                 # Takes care of adding nodes
                 await self._cluster.scale(jobs=self._num_node_requested)

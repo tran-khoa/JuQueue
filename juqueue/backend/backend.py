@@ -149,6 +149,13 @@ class Backend(HasConfigField):
 
                     if xp.name in self.experiment_managers:
                         del self.experiment_managers[xp.name]
+
+            for name, em in self.experiment_managers.items():
+                if name not in results:
+                    logger.info(f"Removing experiment {name}...")
+                    await em.remove_experiment()
+                    del self.experiment_managers[name]
+
             return results
 
     def has_cluster_manager(self, key: Union[RunInstance, RunDef, str]) -> bool:
