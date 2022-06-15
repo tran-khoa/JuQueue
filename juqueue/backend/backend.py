@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import importlib
 import importlib.util
+import inspect
 import os
 import sys
 import threading
@@ -127,18 +128,23 @@ class Backend(HasConfigField):
                     module = importlib.import_module(f"experiments.{file.stem}")
                     importlib.reload(module)
                     xp: ExperimentDef = module.Experiment()
-                except Exception as ex:
+                except:
                     logger.exception(f"Could not instantiate experiment {file.stem}, skipping...")
                     continue
 
                 try:
                     if xp.name not in self.experiment_managers:
                         self.experiment_managers[xp.name] = ExperimentManager(xp.name, self)
+                    elif xp.name in results:
+                        prev_def_class = self.experiment_managers[xp.name].current_def.__class__
+
+                        raise ValueError(f"An experiment with name {xp.name} declared twice, "
+                                         f"found in '{file}' and {inspect.getfile(prev_def_class)}.")
 
                     result = await self.experiment_managers[xp.name].load_experiment(xp)
                     results[xp.name] = result
                     logger.info(f"Loaded experiment {xp.name}.")
-                except Exception as ex:
+                except:
                     logger.exception(f"Could not load experiment {file.stem}, skipping...")
 
                     if xp.name in self.experiment_managers:
