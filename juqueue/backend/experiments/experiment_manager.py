@@ -26,7 +26,6 @@ class ExperimentManager(HasConfigProperty):
         # noinspection PyTypeChecker
         self._def: ExperimentDef = None
         self._runs: Dict[str, RunInstance] = {}
-        self._pending_run_updates: Dict[str, asyncio.Future] = {}
 
         self._lock = asyncio.Lock()
 

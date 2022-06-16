@@ -62,6 +62,7 @@ class ClusterManager(HasConfigProperty):
     _cluster_def: Optional[ClusterDef]
 
     _run_schedules: Dict[str, RunSchedule]
+    _run_queue: PriorityQueue
 
     _nodes: Dict[int, NodeManagerWrapper]
 
@@ -352,7 +353,7 @@ class ClusterManager(HasConfigProperty):
         candidate = None
         importance = (math.inf, math.inf)  # Status, Number of running tasks
 
-        for idx, node in self._nodes.items():
+        for idx, node in list(self._nodes.items()):
             if node.status == "dead":
                 return idx, (0, 0)
             elif node.status == "queued":
@@ -393,7 +394,7 @@ class ClusterManager(HasConfigProperty):
         current_cand, current_avail = None, math.inf
 
         dead_nodes = False
-        for node_idx, node in self._nodes.items():
+        for node_idx, node in list(self._nodes.items()):
             try:
                 avail = await node.available_slots()
             except (NodeDeathError, NodeNotReadyError):
