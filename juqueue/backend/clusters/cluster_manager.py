@@ -576,7 +576,8 @@ class ClusterManager(HasConfigProperty):
                             node.mark_stopped()
                 elif event_type == "add":
                     logger.info(f"Worker {args} registered.")
-                    self._add_node(worker=args)
+                    async with self._scheduler_lock:
+                        self._add_node(worker=args)
                 else:
                     logger.warning(f"Ignoring unknown scheduler event {event_type}")
         except asyncio.CancelledError:
