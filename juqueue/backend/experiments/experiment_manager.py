@@ -135,6 +135,8 @@ class ExperimentManager(HasConfigProperty):
                 cms[cm.cluster_name] = cm
                 await cm.add_run(run)
 
+            self._backend.notify_observers()
+
             for cm in cms.values():
                 await cm.rescale()
 
