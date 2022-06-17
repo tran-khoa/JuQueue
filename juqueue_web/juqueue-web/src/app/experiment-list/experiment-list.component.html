@@ -1,0 +1,111 @@
+<section *ngIf="experiments">
+
+<div class="d-flex justify-content-between mb-2">
+    <h3>
+        Experiments        
+    </h3>
+    <div>
+        <a class="btn btn-outline-primary btn-sm" 
+        href="#" 
+        (click)="reloadExperimentDefs()"
+        placement="left" ngbTooltip="Reloads experiment definitions from disk">
+        Load definitions
+        </a>
+    </div>
+
+</div>
+
+
+<ngb-accordion activeIds="open_panels">
+    <ngb-panel *ngFor="let xp of experiments | keyvalue"
+        (hidden)="panelClosed(xp.key)" (show)="panelOpened(xp.key)"
+        id="{{xp.key}}">
+
+        <ng-template ngbPanelHeader let-opened="opened">
+            <button ngbPanelToggle [ngClass]="{'accordion-button': true, 'bg-light': !opened}">
+                <div class="flex-fill"><h5>{{xp.key}}</h5></div>
+                <div class="pe-2 d-flex">
+                    <span class="text-success p-1">
+                        <i-bs name="check-circle-fill"></i-bs> {{experimentStatusCounts[xp.key]['finished']}}
+                    </span>
+                    <span class="text-danger p-1">
+                        <i-bs name="x-circle-fill"></i-bs> {{experimentStatusCounts[xp.key]['failed']}}
+                    </span>
+                    <span class="text-primary p-1">
+                        <i-bs name="play-circle-fill"></i-bs> {{experimentStatusCounts[xp.key]['ready'] + experimentStatusCounts[xp.key]['running']}}
+                    </span>
+                    <span class="text-secondary p-1">
+                        <i-bs name="pause-circle-fill"></i-bs> {{experimentStatusCounts[xp.key]['inactive']}}
+                    </span>
+                </div>
+            </button>
+          </ng-template>
+
+
+        <ng-template ngbPanelContent>
+
+            <div class="controls mb-2 d-flex">
+                <div class="btn-group pe-2" role="group">
+                    <button type="button" class="btn btn-outline-primary" (click)="selectAll(xp.key)">Select all</button>
+                    <button type="button" class="btn btn-outline-primary" (click)="selectInactive(xp.key)">Select inactive/failed</button>
+                    <button type="button" class="btn btn-outline-primary" (click)="selectNone(xp.key)">Select none</button>
+                </div>
+                <!--                     <ngx-bootstrap-multiselect [options]="run_status" [settings]="filters_status_settings" [texts]="filters_status_texts" [(ngModel)]="filters_status[xp.key]" (ngModelChange)="onFilterStatus($event)"></ngx-bootstrap-multiselect>
+ -->
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-primary run-action-batch" [attr.data-experiment]="xp.key" (click)="resumeSelected(xp.key)" disabled>Resume selected</button>
+                    <button type="button" class="btn btn-danger run-action-batch" [attr.data-experiment]="xp.key" (click)="cancelSelected(xp.key)" disabled>Cancel selected</button>
+                </div>
+
+            </div>
+
+
+            <div class="list-group" [formGroup]="forms[xp.key]">
+                <div class="list-group-item d-flex align-items-center" 
+                        *ngFor="let run of xp.value.runs|keyvalue" 
+                        [ngSwitch]="run.value.status">
+                    <div class="flex-fill">
+                        <input 
+                            class="form-check-input me-2 align-content-center d-display" 
+                            name="{{xp.key}}@{{run.key}}" 
+                            type="checkbox"
+                            [formControlName]="run.key"
+                            [attr.data-experiment]="xp.key"
+                            [attr.data-run]="run.key"
+                            (change)="onCheckboxChange(xp.key)"
+                            />
+                        <b class="align-content-center d-display text-truncate">{{run.key}}</b></div>
+
+                    <div *ngIf="['failed', 'finished', 'inactive'].includes(run.value.status)">
+                        <button type="button" class="btn btn-primary btn-sm" (click)="resumeRuns(xp.key, [run.key])">Resume</button>
+                    </div>
+                    <div *ngIf="['ready', 'running'].includes(run.value.status)">
+                        <button type="button" class="btn btn-danger btn-sm" (click)="cancelRuns(xp.key, [run.key])">Cancel</button>
+                    </div>
+
+                    <div class="d-flex align-content-center justify-content-end"  style="min-width: 80px;">
+                        <span class="badge bg-danger rounded-pill" *ngSwitchCase="'failed'">
+                            failed
+                        </span>
+                        <span class="badge bg-success rounded-pill" *ngSwitchCase="'finished'">
+                            finished
+                        </span>
+                        <span class="badge bg-primary rounded-pill" *ngSwitchCase="'running'">
+                            running
+                        </span>
+                        <span class="badge bg-primary rounded-pill" *ngSwitchCase="'ready'">
+                            ready
+                        </span>
+                        <span class="badge bg-secondary rounded-pill" *ngSwitchCase="'inactive'">
+                            inactive
+                        </span>
+
+                    </div>
+
+                </div>
+            </div>
+        </ng-template>
+    </ngb-panel>
+
+    </ngb-accordion>
+</section>

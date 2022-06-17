@@ -1,0 +1,30 @@
+<div class="container">
+  <div class="row mt-5">
+    <div class="col">
+      <h1 class="display-5">
+        JuQueue
+        
+
+      </h1> 
+      <small class="text-muted">Last updated: {{lastUpdated ? (lastUpdated | date:'yyyy-MM-dd, HH:mm:ss') : "never"}}  (<a href="#" (click)="refreshData()">Refresh data</a>)</small>
+      
+    </div>
+  </div>
+  
+  <div class="row mt-4">
+    <div class="col">
+      <app-experiment-list></app-experiment-list>
+    </div>
+  </div>
+
+  <div class="row mt-4">
+    <div class="col">
+      <app-cluster-list></app-cluster-list>
+    </div>
+  </div>
+  
+</div>
+
+<app-toast></app-toast>
+
+<router-outlet></router-outlet>

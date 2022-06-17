@@ -1,0 +1,49 @@
+<section *ngIf="clusters">
+    <div class="d-flex justify-content-between mb-2">
+        <h3>Clusters</h3>
+
+        <div>
+            <a class="btn btn-outline-primary btn-sm" 
+            href="#" 
+            (click)="reloadClusterDefs()"
+            placement="left" ngbTooltip="Reloads cluster definitions from disk">
+            Load definitions
+        </a>
+        </div>
+
+        
+    </div>
+
+    <section class="border p-3 bg-light">
+        <section *ngFor="let cl of clusters | keyvalue">
+            <div class="container-flex" *ngIf="cl.value.nodes">
+                <div class="row">
+                    <h4 class="mb-3">{{cl.key}} <small class="text-muted">{{cl.value.nodes_requested}} {{cl.value.nodes_requested != 1 ? "nodes" : "node"}}</small></h4>
+                    <hr>
+                </div>
+                <div class="row">
+                    <div class="col-3" *ngFor="let node of cl.value.nodes | keyvalue">
+                        <table class="table table-hover caption-top">
+                            <caption>Node {{node.key}} on {{node.value.worker}}</caption>
+                            
+                            <thead>
+                                <tr>
+                                    <th scope="col">#</th>
+                                    <th scope="col">Occupant</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr *ngFor="let slot of node.value.slots">
+                                    <td>{{slot.index}}</td>
+                                    <td class="text-truncate">{{slot.occupant}}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+            </div>
+
+        </section>
+    </section>
+</section>
