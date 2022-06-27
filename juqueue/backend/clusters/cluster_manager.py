@@ -160,7 +160,7 @@ class ClusterManager(HasConfigProperty):
                 self._dask_event_handler.cancel()
 
             self._dask_event_handler = asyncio.create_task(
-                self._dask_event_handler_loop(), name=f"dask_event_handler_{self.cluster_name}"
+                self._dask_event_handler_loop(self._client), name=f"dask_event_handler_{self.cluster_name}"
             )
             self._dask_event_handler.add_done_callback(strict_error_handler)
 
@@ -565,9 +565,9 @@ class ClusterManager(HasConfigProperty):
                              f"Stopping JuQueue, please report this issue!")
             await self._backend.stop()
 
-    async def _dask_event_handler_loop(self):
+    async def _dask_event_handler_loop(self, client: Client):
         try:
-            queue = await Queue(f"event_{self.cluster_name}")
+            queue = await Queue(f"event_{self.cluster_name}", client=client)
             while True:
                 event = await queue.get()
 

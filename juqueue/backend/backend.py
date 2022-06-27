@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import importlib
 import importlib.util
 import inspect
@@ -51,6 +52,7 @@ class Backend(HasConfigField):
 
         sys.path.insert(0, str(self.definitions_path))
 
+        self.experiment_files = {}
         self.experiment_managers = {}
         self.cluster_managers = {}
         self.running = True
@@ -124,6 +126,16 @@ class Backend(HasConfigField):
             for file in experiments_path.glob("*.py"):
                 if file.name.startswith(".") or file.name.startswith("_"):
                     continue
+
+                disk_md5 = hashlib.md5(usedforsecurity=False)
+                with file.open('rb') as def_file:
+                    disk_md5.update(def_file.read())
+
+                if file in self.experiment_files and self.experiment_files[file]["checksum"] == disk_md5.digest():
+                    logger.info(f"Experiment {file.stem} unchanged, continuing...")
+                    results[self.experiment_files[file]["experiment_name"]] = {}
+                    continue
+
                 try:
                     module = importlib.import_module(f"experiments.{file.stem}")
                     importlib.reload(module)
@@ -131,6 +143,8 @@ class Backend(HasConfigField):
                 except:
                     logger.exception(f"Could not instantiate experiment {file.stem}, skipping...")
                     continue
+
+                self.experiment_files[file] = {"checksum": disk_md5.digest(), "experiment_name": xp.name}
 
                 try:
                     if xp.name not in self.experiment_managers:
