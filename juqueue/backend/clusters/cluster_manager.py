@@ -173,7 +173,8 @@ class ClusterManager(HasConfigProperty):
     async def add_run(self, run: RunInstance):
         async with self._scheduler_lock, holds_lock("add_run"):
             if run.global_id in self._run_schedules:
-                raise ValueError("Queuing a run that is already in the queue!")
+                logger.warning(f"Queuing a run ({run.id} that is already in the queue!")
+                return
 
             await self._add_run(run)
 
@@ -352,6 +353,8 @@ class ClusterManager(HasConfigProperty):
     async def _next_removable_node(self) -> Tuple[int, Tuple]:
         candidate = None
         importance = (math.inf, math.inf)  # Status, Number of running tasks
+
+        # 0: dead, 1: queued, 2: alive, 3: blocked (not impl'd yet)
 
         for idx, node in list(self._nodes.items()):
             if node.status == "dead":
