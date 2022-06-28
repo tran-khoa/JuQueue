@@ -20,7 +20,7 @@ class SlotInfo(BaseModel):
 class NodeInfo(BaseModel):
     status: Literal["queued", "dead", "alive"]
     worker: str
-    slots: List[SlotInfo]
+    slots: Optional[List[SlotInfo]]
 
 
 class ClusterInfo(BaseModel):
