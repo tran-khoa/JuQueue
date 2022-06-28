@@ -38,6 +38,7 @@ class CallbackPlugin(SchedulerPlugin):
 
     def __init__(self, cluster_name: str):
         super(CallbackPlugin, self).__init__()
+        self.cluster_name = cluster_name
 
     def queue(self) -> asyncio.Queue:
         return Queue(f"event_{self.cluster_name}")
