@@ -36,7 +36,7 @@ async def get_clusters():
     for cm in Backend.instance().cluster_managers.values():
         node_infos = {}
 
-        for node in cm.nodes.values():
+        for node in list(cm.nodes.values()):
             node_infos[node.index] = {"status": node.status,
                                       "worker": node.worker,
                                       "slots": None}

@@ -109,6 +109,8 @@ class Backend(HasConfigField):
                     if name in self.cluster_managers:
                         del self.cluster_managers[name]
 
+        self.notify_observers()
+
         return class_defs
 
     async def load_experiments(self):
@@ -169,6 +171,8 @@ class Backend(HasConfigField):
                     logger.info(f"Removing experiment {name}...")
                     await em.remove_experiment()
                     del self.experiment_managers[name]
+
+            self.notify_observers()
 
             return results
 
