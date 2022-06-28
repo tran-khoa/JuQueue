@@ -22,7 +22,7 @@
                     <hr>
                 </div>
                 <div class="row">
-                    <div class="col-3" *ngFor="let node of cl.value.nodes | keyvalue">
+                    <div class="col-4 text-truncate" *ngFor="let node of cl.value.nodes | keyvalue">
                         <table class="table table-hover caption-top">
                             <caption>Node {{node.key}} on {{node.value.worker}}</caption>
                             
@@ -34,8 +34,8 @@
                             </thead>
                             <tbody>
                                 <tr *ngFor="let slot of node.value.slots">
-                                    <td>{{slot.index}}</td>
-                                    <td class="text-truncate">{{slot.occupant}}</td>
+                                    <td placement="auto" container="body" ngbTooltip="{{slot.occupant}}">{{slot.index}}</td>
+                                    <td>{{slot.occupant}}</td>
                                 </tr>
                             </tbody>
                         </table>

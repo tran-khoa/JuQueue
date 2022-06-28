@@ -92,7 +92,7 @@ export class ExperimentListComponent implements OnInit {
       if (!(key in forms))
         forms[key] = this.fb.group({})
     })
-
+    
     // Update experiments
     Object.keys(forms).forEach((xp_key: string) => {
       // Remove runs
@@ -108,8 +108,8 @@ export class ExperimentListComponent implements OnInit {
               }
             })
     });
-    this.forms = forms;    
-
+    this.forms = forms;
+    Object.keys(experiments).forEach(experiment => this.updateExperimentActionButtonStatus(experiment));
   }
 
   onPostUpdate(experiments: {[key: string]: Experiment;}): void {
@@ -156,7 +156,6 @@ export class ExperimentListComponent implements OnInit {
     document.querySelectorAll(`input[type='checkbox'][data-experiment='${experiment}']`).forEach(
       (el: Element) => {
         const run = this.experiments[experiment].runs[el.getAttribute("data-run")!];
-        console.log(run);
         
 
         if (["inactive", "failed"].includes(run.status)) {
@@ -186,7 +185,6 @@ export class ExperimentListComponent implements OnInit {
     const result: string[] = Object.entries(this.forms[experiment]?.value)
       .filter(([, checked]) => checked)
       .map(([uid, ]) => uid);
-    console.log("Selected runs: " + result);
     return result;
   }
 
@@ -194,17 +192,11 @@ export class ExperimentListComponent implements OnInit {
   }
 
   onCheckboxChange(experiment: string) {
-    const hasChecked = this.getSelected(experiment).length > 0;
-    document.querySelectorAll(`button.run-action-batch[data-experiment='${experiment}']`).forEach(
-      (el) => {
-        if (hasChecked)
-          (<HTMLButtonElement>el).disabled = false;
-        else
-        (<HTMLButtonElement>el).disabled = true;
-      }
-    );
+    this.updateExperimentActionButtonStatus(experiment); 
+  }
 
-
+  updateExperimentActionButtonStatus(experiment: string) {
+      // TODO: impl
   }
 
 

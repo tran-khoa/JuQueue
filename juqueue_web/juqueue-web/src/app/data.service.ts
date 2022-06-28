@@ -19,6 +19,7 @@ export class DataService {
   experiments: ExperimentData = {};
   clusters: ClusterData = {};
   lastUpdated: Date|null = null;
+  fetchRequested: boolean = false;
 
   preExperimentUpdateCallbacks: ((experiments: ExperimentData) => void)[] = [];
   postExperimentUpdateCallbacks: ((experiments: ExperimentData) => void)[] = [];
@@ -43,20 +44,27 @@ export class DataService {
     clusterService.rootUrl = this.rootUrl;
     juqueueService.rootUrl = this.rootUrl;
 
-    this.fetch();
-    this.socketService.register_callback(() => this.fetch());
+    this.request_fetch();
+    this.socketService.register_callback(() => this.request_fetch());
   }
 
-  fetch(done_callback: (() => void)|null = null) {
+  request_fetch() {
+    if (this.fetchRequested) {
+      return;
+    }
+    
+    this.fetchRequested = true;
+    this.fetch();
+
+    this.fetchRequested = false;
+  }
+
+  fetch() {
     const experimentsObs = this.fetchExperiments();
     const clustersObs = this.fetchClusters();
     
     forkJoin([experimentsObs, clustersObs]).subscribe(() => {
       this.lastUpdated = new Date();
-
-      if (done_callback !== null)
-        done_callback()
-      
       this.postUpdateCallbacks.forEach(cb => cb());
     });
   }

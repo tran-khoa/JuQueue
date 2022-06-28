@@ -21,6 +21,6 @@ export class AppComponent {
   }
 
   refreshData() {
-    this.dataService.fetch(() => this.toastService.showSuccess("Data refreshed."));
+    this.dataService.request_fetch();
   }
 }

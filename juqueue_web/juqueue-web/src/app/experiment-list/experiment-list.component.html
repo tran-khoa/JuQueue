@@ -53,8 +53,8 @@
                 <!--                     <ngx-bootstrap-multiselect [options]="run_status" [settings]="filters_status_settings" [texts]="filters_status_texts" [(ngModel)]="filters_status[xp.key]" (ngModelChange)="onFilterStatus($event)"></ngx-bootstrap-multiselect>
  -->
                 <div class="btn-group" role="group">
-                    <button type="button" class="btn btn-primary run-action-batch" [attr.data-experiment]="xp.key" (click)="resumeSelected(xp.key)" disabled>Resume selected</button>
-                    <button type="button" class="btn btn-danger run-action-batch" [attr.data-experiment]="xp.key" (click)="cancelSelected(xp.key)" disabled>Cancel selected</button>
+                    <button type="button" class="btn btn-primary run-action-batch" [attr.data-experiment]="xp.key" (click)="resumeSelected(xp.key)">Resume selected</button>
+                    <button type="button" class="btn btn-danger run-action-batch" [attr.data-experiment]="xp.key" (click)="cancelSelected(xp.key)">Cancel selected</button>
                 </div>
 
             </div>

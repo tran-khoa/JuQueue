@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Dict, Literal, Optional, Tuple, Union, List
 
 import dask.distributed
-from dask.distributed import Client, Queue, Scheduler, SchedulerPlugin
+from dask.distributed import Client, Queue, Scheduler, SchedulerPlugin, get_client
 from dask_jobqueue import JobQueueCluster
 from loguru import logger
 
@@ -38,19 +38,17 @@ class CallbackPlugin(SchedulerPlugin):
 
     def __init__(self, cluster_name: str):
         super(CallbackPlugin, self).__init__()
-        self.cluster_name = cluster_name
 
-    @property
     def queue(self) -> asyncio.Queue:
         return Queue(f"event_{self.cluster_name}")
 
     async def remove_worker(self, scheduler: Scheduler, worker: str):
-        await self.queue.put(
+        await self.queue().put(
             ("remove", worker)
         )
 
     async def add_worker(self, scheduler: Scheduler, worker: str):
-        await self.queue.put(
+        await self.queue().put(
             ("add", worker)
         )
 
@@ -88,8 +86,6 @@ class ClusterManager(HasConfigProperty):
         self._scheduler.add_done_callback(strict_error_handler)
 
         self.notify_new_slot = asyncio.Event()
-
-        self._callback_plugin = CallbackPlugin(self.cluster_name)
 
         self._scheduler_lock = asyncio.Lock()
         self._stopping = False
@@ -154,7 +150,7 @@ class ClusterManager(HasConfigProperty):
                 Path(self._cluster.log_directory).expanduser().mkdir(parents=True, exist_ok=True)
 
             self._client = await Client(self._cluster, asynchronous=True)
-            await self._client.register_scheduler_plugin(self._callback_plugin)
+            await self._client.register_scheduler_plugin(CallbackPlugin(self.cluster_name))
 
             if self._dask_event_handler is not None:
                 self._dask_event_handler.cancel()
@@ -290,7 +286,7 @@ class ClusterManager(HasConfigProperty):
             if shutdown_tasks:
                 await asyncio.wait_for(asyncio.gather(*shutdown_tasks, return_exceptions=True), 2)
         except asyncio.TimeoutError:
-            logger.warning(f"Timed out waiting for actor {idx} to stop gracefully.")
+            logger.warning(f"Timed out waiting for worker {idx} on {self.cluster_name} to stop gracefully.")
         except:
             logger.exception("Exception occurend during node shutdown.")
 
@@ -438,7 +434,7 @@ class ClusterManager(HasConfigProperty):
                     else:
                         try:
                             key = f"run_event_{item.global_id}"
-                            queue = dask.distributed.Queue(key)
+                            queue = dask.distributed.Queue(key, client=self._client)
 
                             with contextlib.suppress(Exception):
                                 # Empty queue

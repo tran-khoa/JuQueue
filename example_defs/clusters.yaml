@@ -4,9 +4,3 @@ example_local:
   memory: 2GB
   max_jobs: 6
   num_slots: 2
-example_local2:
-  type: local
-  cores: 4
-  memory: 2GB
-  max_jobs: 6
-  num_slots: 2
