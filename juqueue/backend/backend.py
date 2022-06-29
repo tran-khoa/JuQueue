@@ -65,6 +65,8 @@ class Backend(HasConfigField):
         self._on_shutdown_handler = on_shutdown
         self._observers = {}
 
+        self.is_notifying = False
+
     async def initialize(self):
         try:
             logger.info("Loading clusters...")
@@ -231,5 +233,14 @@ class Backend(HasConfigField):
             del self._observers[name]
 
     def notify_observers(self):
+        if self.is_notifying:
+            return
+
+        self.is_notifying = True
+        # It is likely further changes will arrive in the next few seconds.
+        await asyncio.sleep(3)
+
         for event in self._observers.values():
             event.set()
+
+        self.is_notifying = False
