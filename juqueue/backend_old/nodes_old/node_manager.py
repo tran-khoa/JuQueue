@@ -7,12 +7,12 @@ from typing import Any, Dict, List, Optional, Protocol
 
 from loguru import logger
 
-from juqueue.backend.nodes.slot import Slot
+#from juqueue.backend.nodes.slot import Slot
 from juqueue.backend.nodes import Executor
 from juqueue.exceptions import NoSlotsError
 
 if typing.TYPE_CHECKING:
-    from juqueue.backend.run_instance import RunInstance
+    from juqueue.backend.entities.run_instance import RunInstance
     from juqueue.definitions import RunDef
 
 

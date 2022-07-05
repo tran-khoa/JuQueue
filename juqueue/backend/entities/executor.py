@@ -7,7 +7,6 @@ import datetime
 import os
 import shlex
 import tempfile
-import typing
 from pathlib import Path
 from typing import Dict, List
 
@@ -15,25 +14,18 @@ import psutil
 from loguru import logger
 from psutil import NoSuchProcess
 
-from .watchers import child_watcher
+from juqueue.backend.cluster.watchers import child_watcher
 from juqueue.definitions import ExecutorDef
-
-if typing.TYPE_CHECKING:
-    from juqueue.definitions import RunDef
+from juqueue.backend.entities.run_instance import RunInstance
 
 
 class Executor(ExecutorDef):
 
-    work_dir: Path
-
     @classmethod
-    def from_def(cls, executor_def: ExecutorDef, work_dir: Path):
-        return cls.parse_obj({
-            "work_dir": work_dir,
-            **executor_def.dict()
-        })
+    def from_def(cls, executor_def: ExecutorDef):
+        return cls.parse_obj( executor_def.dict())
 
-    def environment(self, run: RunDef, slots: List[int]) -> Dict[str, str]:
+    def environment(self, run: RunInstance, slots: List[int]) -> Dict[str, str]:
         env = self.env.copy()
 
         if self.cuda:
@@ -43,41 +35,38 @@ class Executor(ExecutorDef):
             env['PYTHONPATH'] = env.get("PYTHONPATH", "") + ":" + ":".join(self.python_search_path)
 
         env['RUN_ID'] = run.id
-        env['EXPERIMENT_ID'] = run.experiment_name
+        env['EXPERIMENT_ID'] = run.run_def.experiment_name
 
         return env
 
-    def create_script(self, run: RunDef) -> str:
+    def create_script(self, run: RunInstance) -> str:
         # Create run script
         script = ["#!/bin/bash"]
         if self.prepend_script:
             script.extend(self.prepend_script)
         if self.venv:
             script.append(f". {str(Path(self.venv) / 'bin' / 'activate')}")
-        exec_line = ["exec"] + run.parsed_cmd(work_dir=self.work_dir)
+        exec_line = ["exec"] + run.parsed_cmd
         script.append(shlex.join(exec_line))
         return "\n".join(script)
 
-    def create_virtual_script(self, run: RunDef, slots: List[int]) -> str:
-        lines = [f"cd {run.path.contextualize(self).as_posix()}"]
+    def create_virtual_script(self, run: RunInstance, slots: List[int]) -> str:
+        lines = [f"cd {run.run_path}"]
         for key, value in self.environment(run, slots).items():
             lines.append(f"export {key}={value}")
         lines.append(self.create_script(run))
         return "\n".join(lines)
 
-    async def execute(self, run: RunDef, slots: List[int]) -> int:
+    async def execute(self, run: RunInstance, slots: List[int]) -> int:
         script = self.create_script(run)
 
         env = os.environ.copy()
         env.update(self.environment(run, slots))
 
-        path = run.path.contextualize(self)
-        log_path = run.log_path.contextualize(self)
+        run.run_path.mkdir(parents=True, exist_ok=True)
+        run.log_path.mkdir(parents=True, exist_ok=True)
 
-        path.mkdir(parents=True, exist_ok=True)
-        log_path.mkdir(parents=True, exist_ok=True)
-
-        with (log_path / "stdout.log").open("at") as stdout, (log_path / "stderr.log").open("at") as stderr:
+        with (run.log_path / "stdout.log").open("at") as stdout, (run.log_path / "stderr.log").open("at") as stderr:
             stderr.write(f"---------- {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ----------\n")
             stderr.flush()
 
@@ -93,7 +82,7 @@ class Executor(ExecutorDef):
             try:
                 process = await asyncio.create_subprocess_shell(f"exec {run_file.name}",
                                                                 env=env,
-                                                                cwd=path,
+                                                                cwd=run.run_path,
                                                                 stdout=stdout,
                                                                 stderr=stderr,
                                                                 executable="/bin/bash")

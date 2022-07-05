@@ -107,3 +107,11 @@ wsproto==1.1.0
     # via hypercorn
 zict==2.2.0
     # via distributed
+
+aioprocessing[dill]
+pytest
+pytest-asyncio
+python-socketio[asyncio_client]
+aiohttp[speedups]
+websocket-client
+requests

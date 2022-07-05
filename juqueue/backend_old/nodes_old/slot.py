@@ -14,7 +14,6 @@ from juqueue import RunDef
 from juqueue.backend.clusters.utils import ExecutionResult
 from juqueue.backend.nodes import Executor
 from juqueue.backend.utils import RunEvent
-from juqueue.backend.utils import strict_error_handler
 
 
 @dataclass
@@ -22,7 +21,6 @@ class Slot:
     index: int
     occupant: Optional[str] = None
     run_def: Optional[RunDef] = None
-    executor: Optional[Executor] = None
     task: Optional[Task] = None
 
     @property
@@ -36,39 +34,22 @@ class Slot:
             "run_def": self.run_def
         }
 
-    def assign(self, run_def: RunDef, executor: Executor) -> str:
+    def assign(self, run_def: RunDef, task: asyncio.Task) -> str:
         logger.debug(f"Assigning {run_def} to slot {self.index}...")
         self.occupant = run_def.global_id
         self.run_def = run_def
-        self.executor = executor
 
         key = f"run_event_{run_def.global_id}"
         queue = dask.distributed.Queue(key)
+        self.task = task
         self.task = asyncio.create_task(self._execution_coro(queue, slots=[self.index]))
 
         return key
 
-    async def _heartbeat_coro(self, queue: dask.distributed.Queue):
-        try:
-            while True:
-                await queue.put(ExecutionResult.pack(RunEvent.RUNNING))
-                await asyncio.sleep(60)
-        except:
-            logger.exception("Exception in heartbeat task.")
-            raise
-
     async def _execution_coro(self, queue: dask.distributed.Queue, slots: List[int]):
-        try:
-            heartbeat = asyncio.create_task(self._heartbeat_coro(queue))
-            heartbeat.add_done_callback(strict_error_handler)
-        except:
-            logger.exception("Fatal error!")
-            raise
-
         try:
             return_code = await self.executor.execute(self.run_def, slots)
 
-            heartbeat.cancel()
             if return_code == 0:
                 await queue.put(ExecutionResult.pack(RunEvent.SUCCESS))
             else:
@@ -77,12 +58,10 @@ class Slot:
             # Assumes cluster manager takes care of explicit cancellation
             logger.info(f"{self} has been cancelled...")
 
-            heartbeat.cancel()
             raise
         except Exception as ex:
             logger.exception(f"An exception occured on {self}...")
 
-            heartbeat.cancel()
             await queue.put(ExecutionResult.pack(RunEvent.FAILED, ex))
             raise
         finally:

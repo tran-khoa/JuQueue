@@ -12,7 +12,7 @@ from juqueue.config import Config, HasConfigProperty
 if typing.TYPE_CHECKING:
     from juqueue.backend.backend import Backend
     from juqueue.definitions import ExperimentDef, RunDef
-from juqueue.backend.run_instance import RunInstance
+from juqueue.backend.entities.run_instance import RunInstance
 
 
 class ExperimentManager(HasConfigProperty):

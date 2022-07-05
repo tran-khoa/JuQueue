@@ -9,14 +9,14 @@ from pathlib import Path
 from typing import Dict, Literal, Optional, Tuple, Union, List
 
 import dask.distributed
-from dask.distributed import Client, Queue, Scheduler, SchedulerPlugin, get_client
+from dask.distributed import Client, Queue, Scheduler, SchedulerPlugin
 from dask_jobqueue import JobQueueCluster
 from loguru import logger
 
 from juqueue.backend.clusters.run_schedule import RunSchedule
 from juqueue.backend.clusters.utils import ExecutionResult
 from juqueue.backend.nodes import NodeManagerWrapper
-from juqueue.backend.run_instance import RunInstance
+from juqueue.backend.entities.run_instance import RunInstance
 from juqueue.backend.utils import RunEvent, strict_error_handler
 from juqueue.config import Config, HasConfigProperty
 from juqueue.definitions.cluster import ClusterDef
@@ -150,7 +150,7 @@ class ClusterManager(HasConfigProperty):
             if hasattr(self._cluster, "log_directory"):
                 Path(self._cluster.log_directory).expanduser().mkdir(parents=True, exist_ok=True)
 
-            self._client = await Client(self._cluster, asynchronous=True)
+            self._client = Client(self._cluster, asynchronous=True)
             await self._client.register_scheduler_plugin(CallbackPlugin(self.cluster_name))
 
             if self._dask_event_handler is not None:
