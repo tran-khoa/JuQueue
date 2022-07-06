@@ -38,8 +38,9 @@ class WorkerManagerServer:
     def send_message(self, message: BaseMessage):
         self._outgoing_queue.put(message)
 
-    def start(self):
+    async def start(self):
         self.loop_task = asyncio.create_task(self._start_loop())
+        await self.ready_event.coro_wait()
 
     async def stop(self):
         if self.loop_task is None:
@@ -70,12 +71,16 @@ class WorkerManagerServer:
         try:
             p.start()
 
-            message = await self.incoming_messages.coro_get()
+            message = await asyncio.wait_for(self.incoming_messages.coro_get(), 3)
             assert isinstance(message, InitResponse)
             self.address = message.address
             self.ready_event.set()
 
             await p.coro_join()  # noqa
+        except asyncio.TimeoutError:
+            res = await p.coro_join()
+            print(res.exception)
+            raise
         except asyncio.CancelledError:
             p: multiprocessing.Process
             p.terminate()
@@ -87,30 +92,32 @@ class WorkerManagerServer:
             raise
 
     @staticmethod
-    def _loop_func(input_queue: aioprocessing.AioQueue(),
-                   output_queue: aioprocessing.AioQueue(),
+    def _loop_func(outgoing_queue: aioprocessing.AioQueue(),
+                   incoming_queue: aioprocessing.AioQueue(),
                    bind_interface: Optional[str] = None):
         """
         Should be run in a separate process
         """
         try:
             loop = asyncio.new_event_loop()
-
+            print("Loop created")
             address, sock = WorkerManagerServer._get_socket(bind_interface)
-            output_queue.put(InitResponse(address))
+            print("Acquired socket")
+            incoming_queue.put(InitResponse(address))
+            print("Queue put")
 
             sio = socketio.AsyncServer(
                 async_mode="aiohttp"
             )
             app = web.Application()
             sio.attach(app)
-            input_handler = loop.create_task(WorkerManagerServer._handle_inputs(sio, input_queue))
+            input_handler = loop.create_task(WorkerManagerServer._handle_inputs(sio, outgoing_queue))
 
             web.run_app(app, sock=sock, shutdown_timeout=1)
             logger.debug("CentralWorkerManager loop process closing...")
             input_handler.cancel()
 
-            output_queue.put(None)
+            incoming_queue.put(None)
 
             loop.stop()
             loop.close()
@@ -163,9 +170,11 @@ class CentralWorkerManager:
         self.managers = {}
 
         self.server = WorkerManagerServer()
-        self.server.start()
 
         self.handler = asyncio.create_task(self.message_handler())  # Use main thread for message handling for now
+
+    async def start(self):
+        await self.server.start()
 
     async def message_handler(self):
         while True:
@@ -175,10 +184,7 @@ class CentralWorkerManager:
             await self.handle_message(message)
 
     async def handle_message(self, message: BaseMessage):
-        if isinstance(message, InitResponse):
-            self.address = message.address
-            self.ready_event.set()
-        elif isinstance(message, AckStatusRequest):
+        if isinstance(message, AckStatusRequest):
             pass
         else:
             raise ValueError(f"Unknown message type {type(message)}!")
@@ -199,6 +205,7 @@ class WorkerManager:
     """
     Manages JuQueue workers, belongs to exactly one cluster manager.
     """
+
     def __init__(self,
                  central_worker_manager: CentralWorkerManager,
                  *,

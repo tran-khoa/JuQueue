@@ -8,7 +8,6 @@ import time
 import pytest
 import pytest_asyncio
 import socketio
-import zmq
 import uuid
 
 from aiohttp import web
@@ -23,7 +22,7 @@ WORKER_CONF = {
     "num_slots": 4,
     "report_interval": 30,
     "timeout": 1,
-    "num_retries": 0
+    "num_retries": 1
 }
 
 
@@ -43,7 +42,9 @@ async def stop(sio, runner):
 async def mock_server():
     sio = socketio.AsyncServer(
         async_mode="aiohttp",
-        logger=True, engineio_logger=True
+        logger=True, engineio_logger=True,
+        ping_interval=1,
+        ping_timeout=1
     )
 
     app = web.Application()
@@ -118,6 +119,4 @@ async def test_server_failure(mock_server):
 
     # Should detect death of server and cancel
     with contextlib.suppress(asyncio.CancelledError):
-        await asyncio.sleep(15)
-        print(main_task)
-        assert main_task.done()
+        await asyncio.wait_for(main_task, 5)

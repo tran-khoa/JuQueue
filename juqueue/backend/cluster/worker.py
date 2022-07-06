@@ -165,6 +165,7 @@ class Worker(SendsMessage):
 
         self.sio = socketio.AsyncClient(
             reconnection_attempts=self.cfg.num_retries,
+            reconnection_delay=self.cfg.timeout,
             request_timeout=self.cfg.timeout
         )
         self.sio.on("disconnect", self.disconnect)
