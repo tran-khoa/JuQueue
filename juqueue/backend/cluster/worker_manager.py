@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import contextlib
 import multiprocessing
 import signal
@@ -15,7 +16,8 @@ from loguru import logger
 from aiohttp import web
 import socketio
 
-from juqueue.backend.utils import standard_error_handler
+
+from juqueue.backend.utils import AsyncMultiprocessingQueue, standard_error_handler
 from juqueue.config import Config
 from juqueue.backend.cluster.messages import AckResponse, InternalMessage, InitResponse, BaseMessage, AckStatusRequest, \
     AckReportRequest, \
@@ -25,14 +27,14 @@ from juqueue.backend.cluster.messages import AckResponse, InternalMessage, InitR
 class WorkerManagerServer:
     def __init__(self):
         self.loop_task = None
-        self._incoming_queue = aioprocessing.AioQueue()  # from workers
-        self._outgoing_queue = aioprocessing.AioQueue()  # to workers
+        self._incoming_queue = AsyncMultiprocessingQueue[BaseMessage]()  # from workers
+        self._outgoing_queue = AsyncMultiprocessingQueue[BaseMessage]()  # to workers
         self.address = None
 
-        self.ready_event = aioprocessing.AioEvent()
+        self.ready_event = asyncio.Event()
 
     @property
-    def incoming_messages(self) -> aioprocessing.AioQueue():
+    def incoming_messages(self) -> AsyncMultiprocessingQueue:
         return self._incoming_queue
 
     def send_message(self, message: BaseMessage):
@@ -40,7 +42,7 @@ class WorkerManagerServer:
 
     async def start(self):
         self.loop_task = asyncio.create_task(self._start_loop())
-        await self.ready_event.coro_wait()
+        await self.ready_event.wait()
 
     async def stop(self):
         if self.loop_task is None:
@@ -56,9 +58,9 @@ class WorkerManagerServer:
         logger.debug("WorkerManagerServer stopped!")
 
     @staticmethod
-    async def _handle_inputs(sio: socketio.AsyncServer, queue: aioprocessing.AioQueue()):
+    async def _handle_inputs(sio: socketio.AsyncServer, queue: AsyncMultiprocessingQueue):
         while True:
-            message = await queue.coro_get()
+            message = await queue.aget()
             if message is None:
                 return
 
@@ -66,45 +68,38 @@ class WorkerManagerServer:
             await sio.emit(message, to=message.worker_id)
 
     async def _start_loop(self):
-        p = aioprocessing.AioProcess(target=self._loop_func, args=(self._outgoing_queue, self._incoming_queue))
+        loop = asyncio.get_running_loop()
+        process_task = None
 
         try:
-            p.start()
-
-            message = await asyncio.wait_for(self.incoming_messages.coro_get(), 3)
+            process_task = asyncio.ensure_future(
+                loop.run_in_executor(None, self._server, self._outgoing_queue, self._incoming_queue)
+            )
+            message = await asyncio.wait_for(self._incoming_queue.aget(), 5)
             assert isinstance(message, InitResponse)
             self.address = message.address
             self.ready_event.set()
-
-            await p.coro_join()  # noqa
-        except asyncio.TimeoutError:
-            res = await p.coro_join()
-            print(res.exception)
-            raise
+            await process_task
         except asyncio.CancelledError:
-            p: multiprocessing.Process
-            p.terminate()
+            if process_task is not None:
+                process_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await process_task
+        finally:
             self._outgoing_queue.close()
             self._incoming_queue.close()
-            await p.coro_join()  # noqa
-        except:
-            logger.exception("exception")
-            raise
 
     @staticmethod
-    def _loop_func(outgoing_queue: aioprocessing.AioQueue(),
-                   incoming_queue: aioprocessing.AioQueue(),
-                   bind_interface: Optional[str] = None):
+    def _server(outgoing_queue: AsyncMultiprocessingQueue,
+                incoming_queue: AsyncMultiprocessingQueue,
+                bind_interface: Optional[str] = None):
         """
         Should be run in a separate process
         """
         try:
             loop = asyncio.new_event_loop()
-            print("Loop created")
             address, sock = WorkerManagerServer._get_socket(bind_interface)
-            print("Acquired socket")
             incoming_queue.put(InitResponse(address))
-            print("Queue put")
 
             sio = socketio.AsyncServer(
                 async_mode="aiohttp"
@@ -178,10 +173,13 @@ class CentralWorkerManager:
 
     async def message_handler(self):
         while True:
+            await asyncio.sleep(3600)
+            """
             message = await self.server.incoming_messages.coro_get()
             assert isinstance(message, BaseMessage)
 
             await self.handle_message(message)
+            """
 
     async def handle_message(self, message: BaseMessage):
         if isinstance(message, AckStatusRequest):

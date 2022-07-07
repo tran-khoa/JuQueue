@@ -20,7 +20,7 @@ logger.add(sys.stderr, level="DEBUG")
 @pytest.mark.asyncio
 async def test_address(event_loop):
     central = CentralWorkerManager(DEFAULT_CONFIG)
-    await asyncio.wait_for(central.start(), 5)
+    await central.start()
 
     assert isinstance(central.server.address, str)
 
