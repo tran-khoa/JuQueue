@@ -396,9 +396,12 @@ class ClusterManager(HasConfigProperty):
         dead_nodes = False
         for node_idx, node in list(self._nodes.items()):
             try:
-                avail = await node.available_slots()
+                avail = await asyncio.wait_for(node.available_slots(), 3)
             except (NodeDeathError, NodeNotReadyError):
                 dead_nodes = True
+                continue
+            except asyncio.TimeoutError:
+                logger.warning(f"{node} temporarily unavailable, timed out.")
                 continue
 
             if not avail:
@@ -430,7 +433,7 @@ class ClusterManager(HasConfigProperty):
                         node = await self._schedule_to()
                     except NoSlotsError:
                         logger.debug(f"All workers are busy, pausing scheduler...")
-
+                        await self._run_queue.put(item)
                         pause_scheduler = True
                     else:
                         try:
@@ -445,18 +448,21 @@ class ClusterManager(HasConfigProperty):
                             pause_scheduler = True
                         else:
                             try:
-                                remote_key = await node.queue_run(item.run_def)
+                                remote_key = await asyncio.wait_for(node.queue_run(item.run_def), 15)
                                 assert key == remote_key
                             except NoSlotsError:
                                 logger.warning(f"Node {node} unexpectedly has no available slots!")
-                            except NodeDeathError:
-                                logger.warning(f"Node {node} has died and cannot be scheduled to.")
+                                await self._run_queue.put(item)
+                            except (NodeDeathError, asyncio.TimeoutError):
+                                logger.warning(f"Node {node} has timed out and cannot be scheduled to.")
+                                await self._run_queue.put(item)
                             except:
                                 logger.exception(f"Exception while queueing {item.run_def}.")
                                 raise
                             else:
                                 if node.status == "dead":
                                     logger.warning(f"Node {node} has died and cannot be scheduled to.")
+                                    await self._run_queue.put(item)
                                 else:
                                     logger.info(f"Node {node} accepted {item.run_def} with key {key}.")
                                     watcher_task = asyncio.create_task(
@@ -467,8 +473,6 @@ class ClusterManager(HasConfigProperty):
                                     self.notify_new_slot.clear()
 
                 if pause_scheduler:
-                    await self._run_queue.put(item)
-
                     self._sync_requested = True
                     await self.__sync()
 
