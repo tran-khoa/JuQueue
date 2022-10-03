@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Dict, Literal, Optional, Tuple, Union, List
 
 import dask.distributed
-from dask.distributed import Client, Queue, Scheduler, SchedulerPlugin, get_client
+from dask.distributed import Client, Queue, Scheduler, SchedulerPlugin
 from dask_jobqueue import JobQueueCluster
 from loguru import logger
 
@@ -92,6 +92,10 @@ class ClusterManager(HasConfigProperty):
         self._stopping = False
 
         self._sync_requested = False
+
+    @property
+    def cluster_def(self) -> ClusterDef:
+        return self._cluster_def
 
     @property
     def config(self) -> Config:
@@ -288,7 +292,7 @@ class ClusterManager(HasConfigProperty):
                 await asyncio.wait_for(asyncio.gather(*shutdown_tasks, return_exceptions=True), 2)
         except asyncio.TimeoutError:
             logger.warning(f"Timed out waiting for worker {idx} on {self.cluster_name} to stop gracefully.")
-        except:
+        except Exception:
             logger.exception("Exception occurend during node shutdown.")
 
         for run in affected_runs:
@@ -300,7 +304,7 @@ class ClusterManager(HasConfigProperty):
         if node.worker:
             try:
                 await self._client.retire_workers([node.worker], close_workers=True)
-            except:
+            except Exception:
                 logger.exception(f"Could not remove node {node.name}.")
 
     def runs_by_node(self, node_idx: int) -> List[RunInstance]:
@@ -443,7 +447,7 @@ class ClusterManager(HasConfigProperty):
                             with contextlib.suppress(Exception):
                                 # Empty queue
                                 await asyncio.wait_for(queue.get(batch=True), timeout=1)
-                        except:
+                        except Exception:
                             logger.exception("Could not create queue, pausing scheduler...")
                             pause_scheduler = True
                         else:
@@ -456,7 +460,7 @@ class ClusterManager(HasConfigProperty):
                             except (NodeDeathError, asyncio.TimeoutError):
                                 logger.warning(f"Node {node} has timed out and cannot be scheduled to.")
                                 await self._run_queue.put(item)
-                            except:
+                            except Exception:
                                 logger.exception(f"Exception while queueing {item.run_def}.")
                                 raise
                             else:
@@ -486,7 +490,7 @@ class ClusterManager(HasConfigProperty):
                         logger.debug("Resuming scheduler after 30 seconds...")
         except asyncio.CancelledError:
             logger.debug(f"Shutting down scheduler {self.cluster_name}.")
-        except:
+        except Exception:
             logger.exception("Scheduler failure! Shutting down JuQueue!")
             await self._backend.stop()
 
@@ -561,7 +565,7 @@ class ClusterManager(HasConfigProperty):
                 await asyncio.wait_for(node.stop_run(run.global_id), 5)
 
             await self._handle_run_event(run, RunEvent.CANCELLED_WORKER_DEATH)
-        except:
+        except Exception:
             logger.exception(f"Exception in watcher task for {queue.name}. "
                              f"Stopping JuQueue, please report this issue!")
             await self._backend.stop()

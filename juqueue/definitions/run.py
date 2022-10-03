@@ -112,6 +112,7 @@ class RunDef(BaseModel):
             return {self.resolve_parameters(v, work_dir, **kwargs) for v in obj}
         return obj
 
+    # noinspection PyUnusedLocal
     def parsed_cmd(self, work_dir: Path, **kwargs) -> List[str]:
         """
         Generates the command that will be executed from the definition.

@@ -20,6 +20,7 @@ from juqueue.backend.utils import strict_error_handler
 @dataclass
 class Slot:
     index: int
+    cuda_devices: List[int]
     occupant: Optional[str] = None
     run_def: Optional[RunDef] = None
     executor: Optional[Executor] = None
@@ -44,7 +45,7 @@ class Slot:
 
         key = f"run_event_{run_def.global_id}"
         queue = dask.distributed.Queue(key)
-        self.task = asyncio.create_task(self._execution_coro(queue, slots=[self.index]))
+        self.task = asyncio.create_task(self._execution_coro(queue))
 
         return key
 
@@ -53,20 +54,20 @@ class Slot:
             while True:
                 await queue.put(ExecutionResult.pack(RunEvent.RUNNING))
                 await asyncio.sleep(60)
-        except:
+        except Exception:
             logger.exception("Exception in heartbeat task.")
             raise
 
-    async def _execution_coro(self, queue: dask.distributed.Queue, slots: List[int]):
+    async def _execution_coro(self, queue: dask.distributed.Queue):
         try:
             heartbeat = asyncio.create_task(self._heartbeat_coro(queue))
             heartbeat.add_done_callback(strict_error_handler)
-        except:
+        except Exception:
             logger.exception("Fatal error!")
             raise
 
         try:
-            return_code = await self.executor.execute(self.run_def, slots)
+            return_code = await self.executor.execute(self.run_def, cuda_devices=self.cuda_devices)
 
             heartbeat.cancel()
             if return_code == 0:
@@ -102,7 +103,7 @@ class Slot:
                 await asyncio.wait_for(self.task, timeout=1)
             except asyncio.TimeoutError:
                 raise RuntimeError("Cannot free a slot with a running task")
-            except:
+            except Exception:
                 pass
 
         self._free()

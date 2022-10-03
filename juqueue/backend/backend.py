@@ -9,7 +9,6 @@ import os
 import sys
 import threading
 import time
-import traceback
 import typing
 from typing import Dict, Optional, Union
 
@@ -72,7 +71,7 @@ class Backend(HasConfigField):
             logger.info("Loading experiments...")
             await self.load_experiments()
             logger.info("Backend initialized.")
-        except:
+        except Exception:
             logger.exception("Failed backend initialization!")
             await self.stop()
 
@@ -104,7 +103,7 @@ class Backend(HasConfigField):
                     if name not in self.cluster_managers:
                         self.cluster_managers[name] = ClusterManager(name, self)
                     await self.cluster_managers[name].load_cluster_def(cluster_def)
-                except:
+                except Exception:
                     logger.exception(f"Could not setup cluster {name}, ignoring...")
                     if name in self.cluster_managers:
                         del self.cluster_managers[name]
@@ -142,7 +141,7 @@ class Backend(HasConfigField):
                     module = importlib.import_module(f"experiments.{file.stem}")
                     importlib.reload(module)
                     xp: ExperimentDef = module.Experiment()
-                except:
+                except Exception:
                     logger.exception(f"Could not instantiate experiment {file.stem}, skipping...")
                     continue
 
@@ -160,7 +159,7 @@ class Backend(HasConfigField):
                     result = await self.experiment_managers[xp.name].load_experiment(xp)
                     results[xp.name] = result
                     logger.info(f"Loaded experiment {xp.name}.")
-                except:
+                except Exception:
                     logger.exception(f"Could not load experiment {file.stem}, skipping...")
 
                     if xp.name in self.experiment_managers:

@@ -31,5 +31,5 @@ def get_backend() -> Backend:
     return BackendInstance.get()
 
 
-from .definitions import RunDef, ExperimentDef, ExecutorDef
-import juqueue.definitions.utils as DefUtils
+from .definitions import RunDef, ExperimentDef, ExecutorDef  # noqa
+import juqueue.definitions.utils as DefUtils  # noqa

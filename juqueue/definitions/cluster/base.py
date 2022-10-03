@@ -8,10 +8,12 @@ from juqueue.backend.clusters import ScalingPolicy
 
 class ClusterDef(ABC):
 
-    def __init__(self, *, name: str, max_jobs: int, num_slots: int, scaling_policy: str = "maximize_running", **kwargs):
+    def __init__(self, *, name: str, max_jobs: int, num_slots: int, scaling_policy: str = "maximize_running",
+                 cuda_devices_per_slot: int, **kwargs):
         self.name = name
         self.max_jobs = max_jobs
         self.num_slots = num_slots
+        self.cuda_devices_per_slot = cuda_devices_per_slot
         self._kwargs = kwargs
 
         self.scaling_policy = getattr(ScalingPolicy, scaling_policy, None)
@@ -43,12 +45,12 @@ class ClusterDef(ABC):
 
     def is_updatable(self, other) -> bool:
         """
-        Determines, whether difference necessitates cluster reinstantiation -> False
+        Determines whether difference necessitates cluster reinstantiation -> False
         """
         if not isinstance(other, ClusterDef):
             raise ValueError("Not comparing to another ClusterDef!")
 
-        for p in ("name", "_kwargs"):
+        for p in ("name", "_kwargs", "cuda_devices_per_slot"):
             if getattr(self, p) != getattr(other, p):
                 return False
         return True

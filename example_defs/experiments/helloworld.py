@@ -10,10 +10,6 @@ class Experiment(ExperimentDef):
 
     @property
     def runs(self) -> List[RunDef]:
-        helloworld = RunDef(id="helloworld",
-                            experiment_name=self.name,
-                            cmd=["echo", "Hello world!"],
-                            cluster="example_local")
         runs = [
             RunDef(id="helloworld", experiment_name=self.name, cmd=["echo", "Hello world!"], cluster="example_local"),
             RunDef(id="python", experiment_name=self.name,

@@ -1,5 +1,3 @@
-import asyncio
-
 from loguru import logger
 from tornado.ioloop import IOLoop
 from fastapi import APIRouter

@@ -40,7 +40,8 @@ class NodeManagerInstance(NodeManager):
     slots: List[Slot]
     runs: List[Optional[RunInstance]]
 
-    def __init__(self, num_slots: int, name: str, work_path: Path):
+    def __init__(self, num_slots: int, name: str, work_path: Path,
+                 cuda_devices_per_slot: int = 1):
 
         logger.add(
             work_path / "logs" / "worker.log",
@@ -52,7 +53,9 @@ class NodeManagerInstance(NodeManager):
         self.num_slots = num_slots
         self.work_path = work_path
 
-        self.slots = [Slot(idx) for idx in range(num_slots)]
+        self.slots = [Slot(index=idx,
+                           cuda_devices=[i + cuda_devices_per_slot * idx for i in range(cuda_devices_per_slot)])
+                      for idx in range(num_slots)]
 
         logger.bind(name=name, run_id="@").info(f"Started NodeManager on {self.node} with {num_slots} slots.")
 
@@ -85,7 +88,7 @@ class NodeManagerInstance(NodeManager):
                 raise NoSlotsError()
 
             return key
-        except:
+        except Exception:
             logger.exception("Exception in queue_run")
             raise
 
@@ -97,6 +100,6 @@ class NodeManagerInstance(NodeManager):
                     await slot.cancel()
                     success = True
             return success
-        except:
+        except Exception:
             logger.exception("Exception in queue_run")
             raise

@@ -2,7 +2,6 @@ from typing import List
 
 from fastapi import APIRouter, Body
 from loguru import logger
-from pydantic import BaseModel
 
 from juqueue.backend.backend import Backend
 

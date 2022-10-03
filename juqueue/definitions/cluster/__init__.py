@@ -10,9 +10,9 @@ def register_cluster_def(cluster_type: str):
     return fn
 
 
-from .base import ClusterDef
-from .local import LocalClusterDef
-from .slurm import SLURMClusterDef
+from .base import ClusterDef  # noqa
+from .local import LocalClusterDef  # noqa
+from .slurm import SLURMClusterDef  # noqa
 
 
 def create_cluster_def(cluster_type: str, **kwargs) -> Optional[ClusterDef]:

@@ -118,7 +118,7 @@ def main():
                         default=None,
                         required=False,
                         type=Path)
-    parser.add_argument("--debug", action=argparse.BooleanOptionalAction, type=bool)
+    parser.add_argument("--debug", action=argparse.BooleanOptionalAction, type=bool)  # noqa
     args = parser.parse_args()
 
     if not args.def_dir.exists():

@@ -33,11 +33,11 @@ class Executor(ExecutorDef):
             **executor_def.dict()
         })
 
-    def environment(self, run: RunDef, slots: List[int]) -> Dict[str, str]:
+    def environment(self, run: RunDef, cuda_devices: List[int]) -> Dict[str, str]:
         env = self.env.copy()
 
         if self.cuda:
-            env['CUDA_VISIBLE_DEVICES'] = ",".join(map(str, slots))
+            env['CUDA_VISIBLE_DEVICES'] = ",".join(map(str, cuda_devices))
 
         if self.python_search_path:
             env['PYTHONPATH'] = env.get("PYTHONPATH", "") + ":" + ":".join(self.python_search_path)
@@ -58,18 +58,18 @@ class Executor(ExecutorDef):
         script.append(shlex.join(exec_line))
         return "\n".join(script)
 
-    def create_virtual_script(self, run: RunDef, slots: List[int]) -> str:
+    def create_virtual_script(self, run: RunDef, cuda_devices: List[int]) -> str:
         lines = [f"cd {run.path.contextualize(self).as_posix()}"]
-        for key, value in self.environment(run, slots).items():
+        for key, value in self.environment(run, cuda_devices).items():
             lines.append(f"export {key}={value}")
         lines.append(self.create_script(run))
         return "\n".join(lines)
 
-    async def execute(self, run: RunDef, slots: List[int]) -> int:
+    async def execute(self, run: RunDef, cuda_devices: List[int]) -> int:
         script = self.create_script(run)
 
         env = os.environ.copy()
-        env.update(self.environment(run, slots))
+        env.update(self.environment(run, cuda_devices))
 
         path = run.path.contextualize(self)
         log_path = run.log_path.contextualize(self)
@@ -82,7 +82,7 @@ class Executor(ExecutorDef):
             stderr.flush()
 
             stdout.write(f"---------- {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ----------\n")
-            stdout.write(self.create_virtual_script(run, slots) + "\n")
+            stdout.write(self.create_virtual_script(run, cuda_devices) + "\n")
             stdout.flush()
 
             with tempfile.NamedTemporaryFile("wt", delete=False) as run_file:
@@ -106,7 +106,7 @@ class Executor(ExecutorDef):
                 if process is not None:
                     process.terminate()
                     await asyncio.sleep(1)
-            except:
+            except Exception:
                 logger.exception(f"Exception occured while executing {run}!")
                 raise
             finally:
@@ -115,7 +115,7 @@ class Executor(ExecutorDef):
                 child_pids = []
                 try:
                     child_pids = await child_task
-                except:
+                except Exception:
                     logger.exception("Could not obtain child_pids")
 
                 for pid in child_pids:

@@ -54,8 +54,8 @@ class NodeManagerWrapper(NodeManager):
         else:
             self.instance: Actor
             if (self.instance._future  # noqa
-                and self.instance._future.status in ("finished", "pending")  # noqa
-                and not self._stopped.is_set()):
+                    and self.instance._future.status in ("finished", "pending")  # noqa
+                    and not self._stopped.is_set()):
                 return "alive"
             else:
                 return "dead"
@@ -92,18 +92,20 @@ class NodeManagerWrapper(NodeManager):
     async def _start_coro(self):
         logger.info(f"Starting new node instance {self.name}....")
         try:
-            actor = await self.cluster_manager.dask_client.submit(NodeManagerInstance,
-                                                                  name=f"NodeManager-{self.name}",
-                                                                  num_slots=self.cluster_manager.num_slots,
-                                                                  work_path=self.cluster_manager.work_path,
-                                                                  actor=True,
-                                                                  workers=[self.worker],
-                                                                  allow_other_workers=False,
-                                                                  resources={"num_actors": 1})
+            actor = await self.cluster_manager.dask_client.submit(
+                NodeManagerInstance,
+                name=f"NodeManager-{self.name}",
+                num_slots=self.cluster_manager.num_slots,
+                work_path=self.cluster_manager.work_path,
+                cuda_devices_per_slot=self.cluster_manager.cluster_def.cuda_devices_per_slot,
+                actor=True,
+                workers=[self.worker],
+                allow_other_workers=False,
+                resources={"num_actors": 1})
         except (asyncio.CancelledError, concurrent.futures.CancelledError):
             logger.info(f"Cancelling creation of NodeManager {self.name}.")
             self.instance = None
-        except:
+        except Exception:
             logger.exception(f"An exception occured creating NodeManager {self.name}!")
             self.instance = None
         else:
